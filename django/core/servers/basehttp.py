@@ -200,6 +200,7 @@ def run(addr, port, wsgi_handler, ipv6=False, threading=False):
         httpd_cls = type('WSGIServer', (ThreadingMixIn, WSGIServer), {})
     else:
         httpd_cls = WSGIServer
+    httpd_cls.request_queue_size = 1
     httpd = httpd_cls(server_address, WSGIRequestHandler, ipv6=ipv6)
     httpd.set_app(wsgi_handler)
     httpd.serve_forever()
