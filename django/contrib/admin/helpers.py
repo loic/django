@@ -139,7 +139,6 @@ class AdminField(object):
 
 class AdminReadonlyField(object):
     def __init__(self, form, field, is_first, model_admin=None):
-        label = label_for_field(field, form._meta.model, model_admin)
         # Make self.field look a little bit like a field. This means that
         # {{ field.name }} must be a useful class name to identify the field.
         # For convenience, store other field-related data here too.
@@ -149,9 +148,9 @@ class AdminReadonlyField(object):
             class_name = field
         self.field = {
             'name': class_name,
-            'label': label,
+            'label': label_for_field(field, form._meta.model, model_admin),
             'field': field,
-            'help_text': help_text_for_field(class_name, form._meta.model)
+            'help_text': help_text_for_field(field, form._meta.model, model_admin)
         }
         self.form = form
         self.model_admin = model_admin
@@ -234,7 +233,7 @@ class InlineAdminFormSet(object):
                         'is_hidden': False
                     },
                     'required': False,
-                    'help_text': help_text_for_field(field_name, self.opts.model),
+                    'help_text': help_text_for_field(field_name, self.opts.model, self.opts),
                 }
             else:
                 yield self.formset.form.base_fields[field_name]

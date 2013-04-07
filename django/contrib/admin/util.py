@@ -240,31 +240,58 @@ def model_ngettext(obj, n=None):
     return ungettext(singular, plural, n or 0)
 
 
-def lookup_field(name, obj, model_admin=None):
-    opts = obj._meta
+def get_field_or_attr(name, model, model_admin=None):
     try:
-        f = opts.get_field(name)
+        lookup_type = 'FIELD'
+        field_or_attr = model._meta.get_field_by_name(name)[0]
     except models.FieldDoesNotExist:
-        # For non-field values, the value is either a method, property or
-        # returned via a callable.
         if callable(name):
-            attr = name
-            value = attr(obj)
-        elif (model_admin is not None and hasattr(model_admin, name) and
-          not name == '__str__' and not name == '__unicode__'):
-            attr = getattr(model_admin, name)
-            value = attr(obj)
+            lookup_type = 'CALLABLE'
+            field_or_attr = name
+        elif name in ['__str__', '__unicode__']:
+            # Ideally this would pass as a normal `MODEL_METHOD`, unfortunately
+            # there are buggy tests with missing __unicode__ on the model that
+            # except this function not to raise an exception.
+            # This may need to be revisited.
+            lookup_type = 'MODEL_REPR'
+            field_or_attr = getattr(model, name, None)
+        elif model_admin is not None and hasattr(model_admin, name):
+            lookup_type = 'MODEL_ADMIN_METHOD'
+            field_or_attr = getattr(model_admin, name)
+        elif hasattr(model, name):
+            lookup_type = 'MODEL_METHOD'
+            field_or_attr = getattr(model, name)
         else:
-            attr = getattr(obj, name)
+            message = "Unable to lookup '%s' on %s" % (name, model._meta.object_name)
+            if model_admin:
+                message += " or %s" % (model_admin.__class__.__name__,)
+            raise AttributeError(message)
+
+    return lookup_type, field_or_attr
+
+
+def lookup_field(name, obj, model_admin=None):
+    lookup_type, field_or_attr = get_field_or_attr(name, obj, model_admin)
+
+    if lookup_type == 'FIELD':
+        field, attr = field_or_attr, None
+        value = getattr(obj, name)
+    else:
+        field, attr = None, field_or_attr
+        if lookup_type in ['CALLABLE', 'MODEL_ADMIN_METHOD']:
+            value = attr(obj)
+        elif lookup_type in ['MODEL_METHOD', 'MODEL_REPR']:
             if callable(attr):
                 value = attr()
             else:
                 value = attr
-        f = None
-    else:
-        attr = None
-        value = getattr(obj, name)
-    return f, attr, value
+        else:
+            # This should never happen, if it does, it means we added new
+            # lookup types in `get_field_or_attr` and forgot to implement
+            # proper handling for it in this method.
+            raise NotImplementedError
+
+    return field, attr, value
 
 
 def label_for_field(name, model, model_admin=None, return_attr=False):
@@ -274,14 +301,17 @@ def label_for_field(name, model, model_admin=None, return_attr=False):
     True, the resolved attribute (which could be a callable) is also returned.
     This will be None if (and only if) the name refers to a field.
     """
-    attr = None
-    try:
-        field = model._meta.get_field_by_name(name)[0]
+
+    lookup_type, field_or_attr = get_field_or_attr(name, model, model_admin)
+
+    if lookup_type == 'FIELD':
+        field, attr = field_or_attr, None
         if isinstance(field, RelatedObject):
             label = field.opts.verbose_name
         else:
             label = field.verbose_name
-    except models.FieldDoesNotExist:
+    else:
+        field, attr = None, field_or_attr
         if name == "__unicode__":
             label = force_text(model._meta.verbose_name)
             attr = six.text_type
@@ -289,18 +319,6 @@ def label_for_field(name, model, model_admin=None, return_attr=False):
             label = force_str(model._meta.verbose_name)
             attr = bytes
         else:
-            if callable(name):
-                attr = name
-            elif model_admin is not None and hasattr(model_admin, name):
-                attr = getattr(model_admin, name)
-            elif hasattr(model, name):
-                attr = getattr(model, name)
-            else:
-                message = "Unable to lookup '%s' on %s" % (name, model._meta.object_name)
-                if model_admin:
-                    message += " or %s" % (model_admin.__class__.__name__,)
-                raise AttributeError(message)
-
             if hasattr(attr, "short_description"):
                 label = attr.short_description
             elif callable(attr):
@@ -310,17 +328,21 @@ def label_for_field(name, model, model_admin=None, return_attr=False):
                     label = pretty_name(attr.__name__)
             else:
                 label = pretty_name(name)
-    if return_attr:
-        return (label, attr)
-    else:
-        return label
 
-def help_text_for_field(name, model):
-    try:
-        help_text = model._meta.get_field_by_name(name)[0].help_text
-    except models.FieldDoesNotExist:
-        help_text = ""
-    return smart_text(help_text)
+    if return_attr:
+        return label, attr
+
+    return label
+
+
+def help_text_for_field(name, model, model_admin=None):
+    lookup_type, field_or_attr = get_field_or_attr(name, model, model_admin)
+
+    if lookup_type == 'FIELD':
+        help_text = field_or_attr.help_text
+    else:
+        help_text = getattr(field_or_attr, 'help_text', '')
+    return help_text
 
 
 def display_for_field(value, field):
