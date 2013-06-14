@@ -184,11 +184,6 @@ body.popup .submit-row {
     float: left;
 }
 
-.submit-row .deletelink {
-    background: url(../img/icon_deletelink.gif) 0 50% no-repeat;
-    padding-left: 14px;
-}
-
 /* CUSTOM FORM FIELDS */
 
 .vSelectMultipleField {

@@ -155,11 +155,6 @@ thead th.sorted .text {
     float: right;
 }
 
-.submit-row .deletelink {
-    background: url(../img/icon_deletelink.gif) 0 50% no-repeat;
-    padding-right: 14px;
-}
-
 .vDateField, .vTimeField {
     margin-left: 2px;
 }

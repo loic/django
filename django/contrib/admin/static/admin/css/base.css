@@ -614,19 +614,18 @@ div.breadcrumbs {
 
 /* ACTION ICONS */
 
-.addlink {
-    padding-left: 12px;
-    background: url(../img/icon_addlink.gif) 0 .2em no-repeat;
+.addlink .icon-plus {
+    color: green;
+    font-size: 1.2em;
 }
 
-.changelink {
-    padding-left: 12px;
-    background: url(../img/icon_changelink.gif) 0 .2em no-repeat;
+.changelink .icon-pencil {
+    color: #036;
+    font-size: 1.2em;
 }
 
-.deletelink {
-    padding-left: 12px;
-    background: url(../img/icon_deletelink.gif) 0 .25em no-repeat;
+.deletelink .icon-remove {
+    font-size: 1.2em;
 }
 
 a.deletelink:link, a.deletelink:visited {
@@ -636,6 +635,22 @@ a.deletelink:link, a.deletelink:visited {
 a.deletelink:hover {
     color: #993333;
 }
+
+#result_list .icon-ok-sign {
+    color: green;
+    font-size: 1.2em;
+}
+
+#result_list .icon-minus-sign {
+    color: red;
+    font-size: 1.2em;
+}
+
+#result_list .icon-question-sign {
+    color: gray;
+    font-size: 1.2em;
+}
+
 
 /* OBJECT TOOLS */
 

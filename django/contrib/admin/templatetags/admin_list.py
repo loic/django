@@ -168,9 +168,13 @@ def result_headers(cl):
         }
 
 def _boolean_icon(field_val):
-    icon_url = static('admin/img/icon-%s.gif' %
-                      {True: 'yes', False: 'no', None: 'unknown'}[field_val])
-    return format_html('<img src="{0}" alt="{1}" />', icon_url, field_val)
+    if field_val is None:
+        icon = 'icon-question-sign'
+    elif field_val:
+        icon = 'icon-ok-sign'
+    else:
+        icon = 'icon-minus-sign'
+    return mark_safe('<i class="%s"></i>' % icon)
 
 def items_for_result(cl, result, form):
     """
