@@ -73,7 +73,7 @@ class LimitedStream(object):
 
 
 class WSGIRequest(http.HttpRequest):
-    _request_vars_loaded = False
+    _post_loaded = False
 
     @property
     def encoding(self):
@@ -82,10 +82,13 @@ class WSGIRequest(http.HttpRequest):
     @encoding.setter
     def encoding(self, val):
         self._encoding = val
-        if self._request_vars_loaded:
-            self._load_request_vars()
+
+        self._load_get()
+        self._post_loaded = False
 
     def __init__(self, environ):
+        self.environ = environ
+
         super(WSGIRequest, self).__init__()
 
         script_name = base.get_script_name(environ)
@@ -99,12 +102,9 @@ class WSGIRequest(http.HttpRequest):
         self.path_info = path_info
         self.path = '%s/%s' % (script_name.rstrip('/'), path_info.lstrip('/'))
 
-        self.environ = environ
         self.META = environ
         self.META['SCRIPT_NAME'] = script_name
         self.META['PATH_INFO'] = path_info
-
-        self.COOKIES = http.parse_cookie(self.environ.get('HTTP_COOKIE', ''))
 
         self.method = environ['REQUEST_METHOD'].upper()
 
@@ -124,24 +124,27 @@ class WSGIRequest(http.HttpRequest):
         self._stream = LimitedStream(self.environ['wsgi.input'], content_length)
         self._read_started = False
 
+        # `self.GET` and `self.COOKIES` get their data from the environ, so we can
+        # safely load them here. `self.POST`, `self.FILES` and `self.REQUEST` need
+        # to consume the stream so we lazy load them in `__getattribute__()`.
+        self._load_get()
+        self._load_cookies()
+
     def __getattribute__(self, name):
-        _request_vars_loaded = super(WSGIRequest, self).__getattribute__('_request_vars_loaded')
-        if _request_vars_loaded is False and name in {'GET', 'POST', 'FILES', 'REQUEST'}:
-            self._request_vars_loaded = True
-            self._load_request_vars()
+        _post_loaded = super(WSGIRequest, self).__getattribute__('_post_loaded')
+        if _post_loaded is False and name in set(['POST', 'FILES', 'REQUEST']):
+            self._post_loaded = True
+            self._load_post_and_files()
+            self._load_request()
         return super(WSGIRequest, self).__getattribute__(name)
 
-    def _load_request_vars(self):
+    def _load_get(self):
         # The WSGI spec says 'QUERY_STRING' may be absent.
         self.GET = http.QueryDict(self.environ.get('QUERY_STRING', ''), encoding=self.encoding)
 
-        # self.POST and self.FILES
-        self._load_post_and_files()
-
-        self.REQUEST = datastructures.MergeDict(self.POST, self.GET)
-
     def _load_post_and_files(self):
         """Populate self.POST and self.FILES if the content-type is a form type"""
+
         if self.method != 'POST':
             self.POST, self.FILES = http.QueryDict('', encoding=self.encoding), MultiValueDict()
             return
@@ -170,6 +173,12 @@ class WSGIRequest(http.HttpRequest):
             self.POST, self.FILES = http.QueryDict(self.body, encoding=self.encoding), MultiValueDict()
         else:
             self.POST, self.FILES = http.QueryDict('', encoding=self.encoding), MultiValueDict()
+
+    def _load_request(self):
+        self.REQUEST = datastructures.MergeDict(self.POST, self.GET)
+
+    def _load_cookies(self):
+        self.COOKIES = http.parse_cookie(self.environ.get('HTTP_COOKIE', ''))
 
     def _is_secure(self):
         return 'wsgi.url_scheme' in self.environ and self.environ['wsgi.url_scheme'] == 'https'
