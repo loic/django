@@ -469,6 +469,7 @@ class QuerySet(object):
         # Clear the result cache, in case this QuerySet gets reused.
         self._result_cache = None
     delete.alters_data = True
+    delete.manager = False
 
     def _raw_delete(self, using):
         """
@@ -508,6 +509,7 @@ class QuerySet(object):
         self._result_cache = None
         return query.get_compiler(self.db).execute_sql(None)
     _update.alters_data = True
+    _update.manager = True
 
     def exists(self):
         if self._result_cache is None:
