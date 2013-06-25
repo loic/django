@@ -58,16 +58,19 @@ class RenameManagerMethods(RenameMethodsBase):
 class Manager(six.with_metaclass(RenameManagerMethods)):
     # Tracks each time a Manager instance is created. Used to retain order.
     creation_counter = 0
-    queryset_class = QuerySet
 
-    def __init__(self, queryset_class=None):
+    def __init__(self, queryset_class=QuerySet):
         super(Manager, self).__init__()
         self._set_creation_counter()
         self.model = None
         self._inherited = False
         self._db = None
-        if queryset_class:
-            self.queryset_class = queryset_class
+
+        self.queryset_class = type(
+            queryset_class.__name__,
+            (queryset_class,),
+            {'base_queryset_class': queryset_class},
+        )
 
     def contribute_to_class(self, model, name):
         # TODO: Use weakref because of possible memory leak / circular reference.
@@ -146,7 +149,8 @@ class Manager(six.with_metaclass(RenameManagerMethods)):
         return RawQuerySet(raw_query=raw_query, model=self.model, params=params, using=self._db, *args, **kwargs)
 
     def __getattr__(self, name):
-        queryset_attr = getattr(self.queryset_class, name, None)
+        queryset_class = object.__getattribute__(self, 'queryset_class')
+        queryset_attr = getattr(queryset_class, name, None)
         if callable(queryset_attr):
             do_proxy = getattr(queryset_attr, 'manager', None)
             if do_proxy is True or do_proxy is None and not name.startswith('_'):

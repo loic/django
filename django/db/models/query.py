@@ -11,7 +11,7 @@ from django.conf import settings
 from django.core import exceptions
 from django.db import connections, router, transaction, DatabaseError
 from django.db.models.constants import LOOKUP_SEP
-from django.db.models.fields import AutoField
+from django.db.models.fields import AutoField, Empty
 from django.db.models.query_utils import (Q, select_related_descend,
     deferred_class_factory, InvalidQuery)
 from django.db.models.deletion import Collector
@@ -25,6 +25,12 @@ REPR_OUTPUT_SIZE = 20
 
 # Pull into this namespace for backwards compatibility.
 EmptyResultSet = sql.EmptyResultSet
+
+
+def _pickle_queryset(klass_bases, klass_dict):
+    new = Empty()
+    new.__class__ = type(klass_bases[0].__name__, klass_bases, klass_dict)
+    return new
 
 
 class QuerySet(object):
@@ -57,6 +63,16 @@ class QuerySet(object):
             else:
                 obj.__dict__[k] = copy.deepcopy(v, memo)
         return obj
+
+    def __reduce__(self):
+        if hasattr(self, 'base_queryset_class'):
+            klass_bases = [self.base_queryset_class]
+            klass_dict = {'base_queryset_class': self.base_queryset_class}
+            if hasattr(self, 'current_queryset_class'):
+                klass_bases.insert(0, self.current_queryset_class)
+                klass_dict['current_queryset_class'] = self.current_queryset_class
+            return _pickle_queryset, (tuple(klass_bases), klass_dict), self.__getstate__()
+        return super(QuerySet, self).__reduce__()
 
     def __getstate__(self):
         """
@@ -840,6 +856,15 @@ class QuerySet(object):
     def _clone(self, klass=None, setup=False, **kwargs):
         if klass is None:
             klass = self.__class__
+        elif not issubclass(self.__class__, klass):
+            if hasattr(self, 'base_queryset_class'):
+                klass_bases = (klass, self.base_queryset_class)
+                klass_dict = {
+                    'base_queryset_class': self.base_queryset_class,
+                    'current_queryset_class': klass,
+                }
+                klass = type(klass.__name__, klass_bases, klass_dict)
+
         query = self.query.clone()
         if self._sticky_filter:
             query.filter_is_sticky = True
