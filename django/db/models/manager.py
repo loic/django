@@ -58,7 +58,7 @@ class RenameManagerMethods(RenameMethodsBase):
 class _Manager(six.with_metaclass(RenameManagerMethods)):
     # Tracks each time a Manager instance is created. Used to retain order.
     creation_counter = 0
-    queryset_class = QuerySet
+    _queryset_class = QuerySet
 
     def __init__(self):
         super(_Manager, self).__init__()
@@ -121,7 +121,7 @@ class _Manager(six.with_metaclass(RenameManagerMethods)):
         """Returns a new QuerySet object.  Subclasses can override this method
         to easily customize the behavior of the Manager.
         """
-        return self.queryset_class(self.model, using=self._db)
+        return self._queryset_class(self.model, using=self._db)
 
     def all(self):
         # All can't be proxied to QuerySet, as prefetch_related is lost on
@@ -134,7 +134,7 @@ class _Manager(six.with_metaclass(RenameManagerMethods)):
     def raw(self, raw_query, params=None, *args, **kwargs):
         return RawQuerySet(raw_query=raw_query, model=self.model, params=params, using=self._db, *args, **kwargs)
 
-Manager = QuerySet.manager_cls(base_cls=_Manager)
+Manager = QuerySet.get_manager_class(base_cls=_Manager)
 
 
 class ManagerDescriptor(object):

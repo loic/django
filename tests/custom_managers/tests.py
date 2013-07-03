@@ -25,6 +25,14 @@ class CustomManagerTests(TestCase):
         )
         print Person.other_objects.filter(fun=False)
         print Person.other_objects.bar()
+
+        Person.other_other_objects.manager_and_queryset_method()
+        Person.other_other_objects.all().manager_and_queryset_method()
+
+        Person.other_other_objects.manager_only()
+        with self.assertRaises(AttributeError):
+            Person.other_other_objects.all().manager_only()
+
         # The RelatedManager used on the 'books' descriptor extends the default
         # manager
         self.assertIsInstance(p2.books, PublishedBookManager)

@@ -30,6 +30,9 @@ class QuerySet(object):
     """
     Represents a lazy database lookup for a set of objects.
     """
+
+    base_manager_class = None
+
     def __init__(self, model=None, query=None, using=None):
         self.model = model
         self._db = using
@@ -42,7 +45,7 @@ class QuerySet(object):
         self._known_related_objects = {}        # {rel_field, {pk: rel_obj}}
 
     @classmethod
-    def manager_cls(cls, base_cls=None):
+    def get_manager_class(cls, base_cls=None):
         """
         Creates a manager class for this QuerySet class.
         """
@@ -57,17 +60,19 @@ class QuerySet(object):
                 if do_copy or do_copy is None and not name.startswith('_'):
                     new_methods[name] = create_method(name)
         if base_cls is None:
+            base_cls = cls.base_manager_class
+        if base_cls is None:
             from django.db.models.manager import Manager as base_cls
         manager_cls = type(
             cls.__name__ + 'Manager',
             (base_cls,),
             new_methods)
-        manager_cls.queryset_class = cls
+        manager_cls._queryset_class = cls
         return manager_cls
 
     @classmethod
     def as_manager(cls, base_cls=None):
-        manager_cls = cls.manager_cls(base_cls=base_cls)
+        manager_cls = cls.get_manager_class(base_cls)
         return manager_cls()
 
     ########################

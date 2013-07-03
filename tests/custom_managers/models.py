@@ -35,6 +35,16 @@ class CustomQuerySet(models.QuerySet):
         return self.all()
     bar.manager = True
 
+class MyManager(models.Manager):
+    def manager_only(self):
+        pass
+
+class MyQuerySet(models.QuerySet):
+    base_manager_class = MyManager
+
+    def manager_and_queryset_method(self):
+        pass
+
 @python_2_unicode_compatible
 class Person(models.Model):
     first_name = models.CharField(max_length=30)
@@ -42,6 +52,7 @@ class Person(models.Model):
     fun = models.BooleanField()
     objects = PersonManager()
     other_objects = CustomQuerySet.as_manager(base_cls=PersonManager)
+    other_other_objects = MyQuerySet.as_manager()
 
     def __str__(self):
         return "%s %s" % (self.first_name, self.last_name)
