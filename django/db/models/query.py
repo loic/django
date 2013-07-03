@@ -41,6 +41,35 @@ class QuerySet(object):
         self._prefetch_done = False
         self._known_related_objects = {}        # {rel_field, {pk: rel_obj}}
 
+    @classmethod
+    def manager_cls(cls, base_cls=None):
+        """
+        Creates a manager class for this QuerySet class.
+        """
+        def create_method(name):
+            def manager_copy(self, *args, **kwargs):
+                return getattr(self.get_queryset(), name)(*args, **kwargs)
+            return manager_copy
+        new_methods = {}
+        for name, maybe_copy in cls.__dict__.items():
+            if callable(maybe_copy):
+                do_copy = getattr(maybe_copy, 'manager', None)
+                if do_copy or do_copy is None and not name.startswith('_'):
+                    new_methods[name] = create_method(name)
+        if base_cls is None:
+            from django.db.models.manager import Manager as base_cls
+        manager_cls = type(
+            cls.__name__ + 'Manager',
+            (base_cls,),
+            new_methods)
+        manager_cls.queryset_class = cls
+        return manager_cls
+
+    @classmethod
+    def as_manager(cls, base_cls=None):
+        manager_cls = cls.manager_cls(base_cls=base_cls)
+        return manager_cls()
+
     ########################
     # PYTHON MAGIC METHODS #
     ########################
@@ -468,6 +497,7 @@ class QuerySet(object):
         # Clear the result cache, in case this QuerySet gets reused.
         self._result_cache = None
     delete.alters_data = True
+    delete.manager = False
 
     def _raw_delete(self, using):
         """
@@ -507,6 +537,7 @@ class QuerySet(object):
         self._result_cache = None
         return query.get_compiler(self.db).execute_sql(None)
     _update.alters_data = True
+    _update.manager = True
 
     def exists(self):
         if self._result_cache is None:
@@ -582,6 +613,7 @@ class QuerySet(object):
         QuerySet to proxy for a model manager in some cases.
         """
         return self._clone()
+    all.manager = False
 
     def filter(self, *args, **kwargs):
         """
