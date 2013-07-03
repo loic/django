@@ -49,20 +49,24 @@ class QuerySet(object):
         """
         Creates a manager class for this QuerySet class.
         """
-        def create_method(name):
-            def manager_copy(self, *args, **kwargs):
-                return getattr(self.get_queryset(), name)(*args, **kwargs)
-            return manager_copy
-        new_methods = {}
-        for name, maybe_copy in cls.__dict__.items():
-            if callable(maybe_copy):
-                do_copy = getattr(maybe_copy, 'manager', None)
-                if do_copy or do_copy is None and not name.startswith('_'):
-                    new_methods[name] = create_method(name)
+
         if base_cls is None:
             base_cls = cls.base_manager_class
         if base_cls is None:
             from django.db.models.manager import Manager as base_cls
+
+        def create_method(name):
+            def manager_copy(self, *args, **kwargs):
+                return getattr(self.get_queryset(), name)(*args, **kwargs)
+            return manager_copy
+
+        new_methods = {}
+        for name, maybe_copy in cls.__dict__.items():
+            if name not in base_cls.__dict__ and callable(maybe_copy):
+                do_copy = getattr(maybe_copy, 'manager', None)
+                if do_copy or do_copy is None and not name.startswith('_'):
+                    new_methods[name] = create_method(name)
+
         manager_cls = type(
             cls.__name__ + 'Manager',
             (base_cls,),
@@ -618,7 +622,6 @@ class QuerySet(object):
         QuerySet to proxy for a model manager in some cases.
         """
         return self._clone()
-    all.manager = False
 
     def filter(self, *args, **kwargs):
         """
