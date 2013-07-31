@@ -440,15 +440,9 @@ class ModelTest(TestCase):
         except Exception as e:
             self.fail('Should raise an AssertionError, not %s' % e)
 
-        # Negative slices are not supported, due to database constraints.
-        # (hint: inverting your ordering might do what you need).
-        try:
-            Article.objects.all()[-1]
-            self.fail('Should raise an AssertionError')
-        except AssertionError as e:
-            self.assertEqual(str(e), "Negative indexing is not supported.")
-        except Exception as e:
-            self.fail('Should raise an AssertionError, not %s' % e)
+        # Test negative indexing.
+        self.assertEqual(Article.objects.all()[-1], a8)
+        self.assertEqual(Article.objects.all()[-3], a4)
 
         error = None
         try:
@@ -456,7 +450,7 @@ class ModelTest(TestCase):
         except Exception as e:
             error = e
         self.assertIsInstance(error, AssertionError)
-        self.assertEqual(str(error), "Negative indexing is not supported.")
+        self.assertEqual(str(error), "Negative slicing is not supported.")
 
         # An Article instance doesn't have access to the "objects" attribute.
         # That's only available on the class.

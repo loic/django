@@ -149,10 +149,14 @@ class QuerySet(object):
         """
         if not isinstance(k, (slice,) + six.integer_types):
             raise TypeError
-        assert ((not isinstance(k, slice) and (k >= 0))
-                or (isinstance(k, slice) and (k.start is None or k.start >= 0)
-                    and (k.stop is None or k.stop >= 0))), \
-                "Negative indexing is not supported."
+
+        assert (
+            not isinstance(k, slice) or (
+                isinstance(k, slice) and
+                (k.start is None or k.start >= 0) and
+                (k.stop is None or k.stop >= 0)
+            )
+        ), "Negative slicing is not supported."
 
         if self._result_cache is not None:
             return self._result_cache[k]
@@ -170,8 +174,13 @@ class QuerySet(object):
             qs.query.set_limits(start, stop)
             return list(qs)[::k.step] if k.step else qs
 
-        qs = self._clone()
-        qs.query.set_limits(k, k + 1)
+        if k >= 0:
+            qs = self._clone()
+            qs.query.set_limits(k, k + 1)
+        else:
+            k *= -1
+            qs = self.reverse() if self.ordered else self.order_by('-pk')
+            qs.query.set_limits(k - 1, k)
         return list(qs)[0]
 
     def __and__(self, other):
