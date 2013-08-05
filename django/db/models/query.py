@@ -684,12 +684,16 @@ class QuerySet(object):
     # PUBLIC METHODS THAT ALTER ATTRIBUTES AND RETURN A NEW QUERYSET #
     ##################################################################
 
+    def chain(self, queryset_class=None):
+        return self._clone(base_class=queryset_class)
+    chain.queryset_only = True
+
     def all(self):
         """
         Returns a new QuerySet that is a copy of the current one. This allows a
         QuerySet to proxy for a model manager in some cases.
         """
-        return self._clone()
+        return self.chain()
 
     def filter(self, *args, **kwargs):
         """
@@ -946,22 +950,32 @@ class QuerySet(object):
             self.model._base_manager._insert(batch, fields=fields,
                                              using=self.db)
 
-    def _clone(self, klass=None, setup=False, **kwargs):
-        if klass is None:
-            klass = self.__class__
-        elif not issubclass(self.__class__, klass):
-            base_queryset_class = getattr(self, '_base_queryset_class', self.__class__)
-            class_bases = (klass, base_queryset_class)
-            class_dict = {
-                '_base_queryset_class': base_queryset_class,
-                '_specialized_queryset_class': klass,
-            }
-            klass = type(klass.__name__, class_bases, class_dict)
+    def _get_queryset_class(self, base_class=None, specialized_class=None):
+        if base_class is None:
+            base_class = self.__class__
+        if specialized_class is None:
+            specialized_class = getattr(self, '_specialized_queryset_class', None)
+
+        if specialized_class is not None:
+            if issubclass(base_class, specialized_class):
+                return specialized_class
+            else:
+                class_bases = (specialized_class, base_class)
+                class_dict = {
+                    '_base_queryset_class': base_class,
+                    '_specialized_queryset_class': specialized_class,
+                }
+                return type(specialized_class.__name__, class_bases, class_dict)
+
+        return base_class
+
+    def _clone(self, klass=None, setup=False, base_class=None, **kwargs):
+        clone_class = self._get_queryset_class(base_class, klass)
 
         query = self.query.clone()
         if self._sticky_filter:
             query.filter_is_sticky = True
-        c = klass(model=self.model, query=query, using=self._db)
+        c = clone_class(model=self.model, query=query, using=self._db)
         c._for_write = self._for_write
         c._prefetch_related_lookups = self._prefetch_related_lookups[:]
         c._known_related_objects = self._known_related_objects

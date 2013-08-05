@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 import threading
 
 from django.db import models
+from django.db.models import QuerySet
 from django.utils import six
 from django.utils.encoding import python_2_unicode_compatible
 
@@ -497,3 +498,10 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return '%s' % self.pk
+
+class NumberQuerySet(QuerySet):
+    def less_than_three(self):
+        return self.filter(num__lt=3)
+
+    def more_than_three(self):
+        return self.filter(num__gt=3)

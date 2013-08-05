@@ -25,7 +25,7 @@ from .models import (
     OneToOneCategory, NullableName, ProxyCategory, SingleObject, RelatedObject,
     ModelA, ModelB, ModelC, ModelD, Responsibility, Job, JobResponsibilities,
     BaseA, FK1, Identifier, Program, Channel, Page, Paragraph, Chapter, Book,
-    MyObject, Order, OrderItem)
+    MyObject, Order, OrderItem, NumberQuerySet)
 
 
 class BaseQuerysetTest(TestCase):
@@ -2955,3 +2955,20 @@ class RelatedLookupTypeTests(TestCase):
         self.assertQuerysetEqual(
             ObjectB.objects.filter(objecta__in=[wrong_type]),
             [ob], lambda x: x)
+
+class CustomQuerysetTests(TestCase):
+    def test_custom_queryset(self):
+        for i in range(5):
+            Number.objects.create(num=i)
+
+        self.assertQuerysetEqual(
+            Number.objects.order_by('num').chain(NumberQuerySet).less_than_three(),
+            [0, 1, 2],
+            lambda x: x.num,
+        )
+
+        self.assertSequenceEqual(
+            (Number.objects.order_by('num').values_list('num', flat=True)
+                .chain(NumberQuerySet).less_than_three()),
+            [0, 1, 2],
+        )
