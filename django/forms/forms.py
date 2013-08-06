@@ -257,24 +257,41 @@ class BaseForm(object):
         prefix = self.add_prefix(fieldname)
         return field.widget.value_from_datadict(self.data, self.files, prefix)
 
+    def _update_errors(self, errors):
+        """
+        Update the content of _errors.
+
+        The `errors` parameter maps form fields to error messages; it can be a
+        `dict` or an instance of `ValidationError` initialized from a `dict`.
+        """
+        if isinstance(errors, dict):
+            errors = ValidationError(errors)
+        for field, messages in errors:
+            self._errors.setdefault(field, self.error_class()).extend(messages)
+            # Remove the data from the cleaned_data dict since it was invalid.
+            if field in self.cleaned_data:
+                del self.cleaned_data[field]
+
     def full_clean(self):
         """
         Cleans all of self.data and populates self._errors and
         self.cleaned_data.
         """
         self._errors = ErrorDict()
-        if not self.is_bound: # Stop further processing.
+        if not self.is_bound:  # Stop further processing.
             return
         self.cleaned_data = {}
         # If the form is permitted to be empty, and none of the form data has
         # changed from the initial data, short circuit any validation.
         if self.empty_permitted and not self.has_changed():
             return
+
         self._clean_fields()
         self._clean_form()
         self._post_clean()
 
     def _clean_fields(self):
+        errors = {}
         for name, field in self.fields.items():
             # value_from_datadict() gets the data from the data dictionaries.
             # Each widget type knows how to retrieve its own data, because some
@@ -291,15 +308,17 @@ class BaseForm(object):
                     value = getattr(self, 'clean_%s' % name)()
                     self.cleaned_data[name] = value
             except ValidationError as e:
-                self._errors[name] = self.error_class(e.messages)
-                if name in self.cleaned_data:
-                    del self.cleaned_data[name]
+                errors[name] = e.error_list
+
+        if errors:
+            self._update_errors(errors)
 
     def _clean_form(self):
         try:
             cleaned_data = self.clean()
         except ValidationError as e:
-            self._errors[NON_FIELD_ERRORS] = self.error_class(e.messages)
+            # `update_error_dict()` knows how to handle `NON_FIELD_ERRORS`.
+            self._update_errors(e.update_error_dict({}))
         else:
             if cleaned_data is not None:
                 self.cleaned_data = cleaned_data

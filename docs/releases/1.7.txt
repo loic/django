@@ -152,6 +152,9 @@ Minor features
   Each radio button or checkbox includes an ``id_for_label`` attribute to
   output the element's ID.
 
+* :meth:`django.forms.Form.clean()` can now raise a ``ValidationError`` that
+  targets specific fields as an alternative to modifying ``_errors``.
+
 Backwards incompatible changes in 1.7
 =====================================
 

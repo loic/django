@@ -646,12 +646,16 @@ class FormsTestCase(TestCase):
         self.assertEqual(f.cleaned_data['password2'], 'foo')
 
         # Another way of doing multiple-field validation is by implementing the
-        # Form's clean() method. If you do this, any ValidationError raised by that
-        # method will not be associated with a particular field; it will have a
-        # special-case association with the field named '__all__'.
-        # Note that in Form.clean(), you have access to self.cleaned_data, a dictionary of
-        # all the fields/values that have *not* raised a ValidationError. Also note
-        # Form.clean() is required to return a dictionary of all clean data.
+        # Form's clean() method. Usually ValidationError raised by that method
+        # will not be associated with a particular field and will have a
+        # special-case association with the field named '__all__'. It's
+        # possible to associate the errors to particular field by passing a
+        # dictionary that maps each field to one or more errors.
+        #
+        # Note that in Form.clean(), you have access to self.cleaned_data, a
+        # dictionary of all the fields/values that have *not* raised, a
+        # ValidationError. Also note Form.clean() is required to return a
+        # dictionary of all clean data.
         class UserRegistration(Form):
             username = CharField(max_length=10)
             password1 = CharField(widget=PasswordInput)
@@ -660,6 +664,14 @@ class FormsTestCase(TestCase):
             def clean(self):
                 if self.cleaned_data.get('password1') and self.cleaned_data.get('password2') and self.cleaned_data['password1'] != self.cleaned_data['password2']:
                     raise ValidationError('Please make sure your passwords match.')
+
+                errors = {}
+                if self.cleaned_data.get('password1') == 'FORBIDDEN_VALUE':
+                    errors['password1'] = 'Forbidden value.'
+                if self.cleaned_data.get('password2') == 'FORBIDDEN_VALUE':
+                    errors['password2'] = ['Forbidden value.']
+                if errors:
+                    raise ValidationError(errors)
 
                 return self.cleaned_data
 
@@ -687,6 +699,9 @@ class FormsTestCase(TestCase):
         self.assertEqual(f.cleaned_data['username'], 'adrian')
         self.assertEqual(f.cleaned_data['password1'], 'foo')
         self.assertEqual(f.cleaned_data['password2'], 'foo')
+        f = UserRegistration({'username': 'adrian', 'password1': 'FORBIDDEN_VALUE', 'password2': 'FORBIDDEN_VALUE'}, auto_id=False)
+        self.assertEqual(f.errors['password1'], ['Forbidden value.'])
+        self.assertEqual(f.errors['password2'], ['Forbidden value.'])
 
     def test_dynamic_construction(self):
         # It's possible to construct a Form dynamically by adding to the self.fields

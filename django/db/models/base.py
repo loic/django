@@ -832,7 +832,6 @@ class Model(six.with_metaclass(ModelBase)):
 
     def _perform_unique_checks(self, unique_checks):
         errors = {}
-
         for model_class, unique_check in unique_checks:
             # Try to look up an existing object with the same values as this
             # object's values for all the unique field.
@@ -938,10 +937,10 @@ class Model(six.with_metaclass(ModelBase)):
         Calls clean_fields, clean, and validate_unique, on the model,
         and raises a ``ValidationError`` for any errors that occurred.
         """
-        errors = {}
         if exclude is None:
             exclude = []
 
+        errors = {}
         try:
             self.clean_fields(exclude=exclude)
         except ValidationError as e:
@@ -969,7 +968,7 @@ class Model(six.with_metaclass(ModelBase)):
 
     def clean_fields(self, exclude=None):
         """
-        Cleans all fields and raises a ValidationError containing message_dict
+        Cleans all fields and raises a ValidationError containing a dict
         of all validation errors if any occur.
         """
         if exclude is None:

@@ -452,6 +452,39 @@ Secondly, once we have decided that the combined data in the two fields we are
 considering aren't valid, we must remember to remove them from the
 ``cleaned_data``.
 
+.. versionchanged:: 1.7
+
+In lieu of manipulating ``_errors`` directly it's now possible to target
+specific fields by raising a ``ValidationError``. This is done by passing
+a dictionary to the ``ValidationError`` constructor that maps each field to
+one or more error messages::
+
+    from django import forms
+
+    class ContactForm(forms.Form):
+        # Everything as before.
+        ...
+
+        def clean(self):
+            cleaned_data = super(ContactForm, self).clean()
+            cc_myself = cleaned_data.get("cc_myself")
+            subject = cleaned_data.get("subject")
+
+            if cc_myself and subject and "help" not in subject:
+                msg = u"Must put 'help' in subject when cc'ing yourself."
+                raise ValidationError({
+                    'cc_myself': msg,
+                    'subject': msg,
+                })
+
+The value mapped to each key can be a simple string but ideally it would be
+an instance of ``ValidationError`` with accompanying error ``code`` and error
+``params`` or when necessary a ``ValidationError`` that contains multiple error
+messages. See :ref:`raising-validation-error` for more details.
+
+Unlike the ``_errors`` approach, fields are automatically removed from
+``cleaned_data``.
+
 .. versionchanged:: 1.5
 
     Django used to remove the ``cleaned_data`` attribute entirely if there were
