@@ -29,9 +29,5 @@ class ReverseSingleRelatedTests(TestCase):
         # manager doesn't normally allow it.
         self.assertEqual(private_item.source, private_source)
 
-        # If the manager is marked "use_for_related_fields", it'll get used instead
-        # of the "bare" queryset. Usually you'd define this as a property on the class,
-        # but this approximates that in a way that's easier in tests.
-        Source.objects.use_for_related_fields = True
         private_item = Item.objects.get(pk=private_item.pk)
         self.assertRaises(Source.DoesNotExist, lambda: private_item.source)

@@ -6,7 +6,6 @@ from django.db.models import signals, get_model
 from django.db.models.fields import (AutoField, Field, IntegerField,
     PositiveIntegerField, PositiveSmallIntegerField, FieldDoesNotExist)
 from django.db.models.related import RelatedObject, PathInfo
-from django.db.models.query import QuerySet
 from django.db.models.deletion import CASCADE
 from django.utils.encoding import smart_text
 from django.utils import six
@@ -163,7 +162,7 @@ class SingleRelatedObjectDescriptor(six.with_metaclass(RenameRelatedObjectDescri
 
     def get_queryset(self, **db_hints):
         db = router.db_for_read(self.related.model, **db_hints)
-        return self.related.model._base_manager.using(db)
+        return self.related.model._default_manager.using(db)
 
     def get_prefetch_queryset(self, instances):
         rel_obj_attr = attrgetter(self.related.field.attname)
@@ -260,13 +259,7 @@ class ReverseSingleRelatedObjectDescriptor(six.with_metaclass(RenameRelatedObjec
 
     def get_queryset(self, **db_hints):
         db = router.db_for_read(self.field.rel.to, **db_hints)
-        rel_mgr = self.field.rel.to._default_manager
-        # If the related manager indicates that it should be used for
-        # related fields, respect that.
-        if getattr(rel_mgr, 'use_for_related_fields', False):
-            return rel_mgr.using(db)
-        else:
-            return QuerySet(self.field.rel.to).using(db)
+        return self.field.rel.to._default_manager.using(db)
 
     def get_prefetch_queryset(self, instances):
         rel_obj_attr = self.field.get_foreign_related_value

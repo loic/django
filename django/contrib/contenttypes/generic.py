@@ -235,7 +235,7 @@ class GenericRelation(ForeignObject):
         Return all objects related to ``objs`` via this ``GenericRelation``.
 
         """
-        return self.rel.to._base_manager.db_manager(using).filter(**{
+        return self.rel.to._default_manager.db_manager(using).filter(**{
                 "%s__pk" % self.content_type_field_name:
                     ContentType.objects.db_manager(using).get_for_model(
                         self.model, for_concrete_model=self.for_concrete_model).pk,

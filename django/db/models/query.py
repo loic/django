@@ -944,8 +944,8 @@ class QuerySet(object):
         batch_size = (batch_size or max(ops.bulk_batch_size(fields, objs), 1))
         for batch in [objs[i:i + batch_size]
                       for i in range(0, len(objs), batch_size)]:
-            self.model._base_manager._insert(batch, fields=fields,
-                                             using=self.db)
+            self._insert(batch, fields=fields)
+    _batched_insert.alters_data = True
 
     def _clone(self, klass=None, setup=False, **kwargs):
         if klass is None:

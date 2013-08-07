@@ -1,5 +1,6 @@
 import copy
 import inspect
+import warnings
 
 from django.db import router
 from django.db.models.query import QuerySet
@@ -31,22 +32,37 @@ def ensure_default_manager(sender, **kwargs):
         except FieldDoesNotExist:
             pass
         cls.add_to_class('objects', Manager())
-        cls._base_manager = cls.objects
-    elif not getattr(cls, '_base_manager', None):
-        default_mgr = cls._default_manager.__class__
-        if (default_mgr is Manager or
-                getattr(default_mgr, "use_for_related_fields", False)):
+    if not getattr(cls, '_base_manager', None):
+        if cls._default_manager.__class__ is Manager:
             cls._base_manager = cls._default_manager
+        # When deprecation cycle is over, the else clause should be:
         else:
-            # Default manager isn't a plain Manager class, or a suitable
-            # replacement, so we walk up the base class hierarchy until we hit
-            # something appropriate.
-            for base_class in default_mgr.mro()[1:]:
-                if (base_class is Manager or
-                        getattr(base_class, "use_for_related_fields", False)):
-                    cls.add_to_class('_base_manager', base_class())
-                    return
-            raise AssertionError("Should never get here. Please report a bug, including your model and model manager setup.")
+            cls.add_to_class('_base_manager', Manager())
+        # else:
+        #     deprecation_warning = (
+        #         "use_for_related_fields is being deprecated and will be "
+        #         "removed in Django 1.9. Use Meta.related_manager to specify "
+        #         "the related Manager.",
+        #         DeprecationWarning,
+        #     )
+        #
+        #     default_mgr = cls._default_manager.__class__
+        #     if getattr(default_mgr, "use_for_related_fields", False):
+        #         warnings.warn(*deprecation_warning, stacklevel=2)
+        #         cls._base_manager = cls._default_manager
+        #     else:
+        #         # Default manager isn't a plain Manager class, or a suitable
+        #         # replacement, so we walk up the base class hierarchy until we hit
+        #         # something appropriate.
+        #         for base_class in default_mgr.mro()[1:]:
+        #             use_for_related_fields = getattr(base_class, "use_for_related_fields", False)
+        #             if use_for_related_fields:
+        #                 warnings.warn(*deprecation_warning, stacklevel=2)
+        #             if base_class is Manager or use_for_related_fields:
+        #                 cls.add_to_class('_base_manager', base_class())
+        #                 return
+        #         raise AssertionError("Should never get here. Please report a bug, including your model and model manager setup.")
+
 
 signals.class_prepared.connect(ensure_default_manager)
 

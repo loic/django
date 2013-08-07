@@ -111,7 +111,7 @@ class DeferredAttribute(object):
                 # various data coersion methods (to_python(), etc.) to be
                 # called here.
                 val = getattr(
-                    non_deferred_model._base_manager.only(name).using(
+                    non_deferred_model._default_manager.only(name).using(
                         instance._state.db).get(pk=instance.pk),
                     self.field_name
                 )
