@@ -10,8 +10,8 @@ from django.conf import settings
 from django.core.exceptions import (ObjectDoesNotExist,
     MultipleObjectsReturned, FieldError, ValidationError, NON_FIELD_ERRORS)
 from django.db.models.fields import AutoField, FieldDoesNotExist
-from django.db.models.fields.related import (ForeignObjectRel, ManyToOneRel,
-    OneToOneField, add_lazy_relation)
+from django.db.models.fields.related import (ForeignObject, ForeignObjectRel,
+    ManyToOneRel, OneToOneField, add_lazy_relation)
 from django.db import (router, transaction, DatabaseError,
     DEFAULT_DB_ALIAS)
 from django.db.models.query import Q
@@ -185,8 +185,10 @@ class ModelBase(type):
             new_class._meta.concrete_model = new_class
 
         # Do the appropriate setup for any model parents.
-        o2o_map = dict([(f.rel.to, f) for f in new_class._meta.local_fields
-                if isinstance(f, OneToOneField)])
+        parent_link_map = {}
+        for field in new_class._meta.local_fields:
+            if isinstance(field, ForeignObject) and field.rel.parent_link:
+                parent_link_map[field.rel.to] = field
 
         for base in parents:
             original_base = base
@@ -208,8 +210,8 @@ class ModelBase(type):
             if not base._meta.abstract:
                 # Concrete classes...
                 base = base._meta.concrete_model
-                if base in o2o_map:
-                    field = o2o_map[base]
+                if base in parent_link_map:
+                    field = parent_link_map[base]
                 elif not is_proxy:
                     attr_name = '%s_ptr' % base._meta.model_name
                     field = OneToOneField(base, name=attr_name,

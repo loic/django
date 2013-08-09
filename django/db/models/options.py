@@ -6,7 +6,7 @@ from bisect import bisect
 import warnings
 
 from django.conf import settings
-from django.db.models.fields.related import ManyToManyRel
+from django.db.models.fields.related import ManyToManyRel, OneToOneField
 from django.db.models.fields import AutoField, FieldDoesNotExist
 from django.db.models.fields.proxy import OrderWrt
 from django.db.models.loading import get_models, app_cache_ready
@@ -151,12 +151,13 @@ class Options(object):
                 already_created = [fld for fld in self.local_fields if fld.name == field.name]
                 if already_created:
                     field = already_created[0]
-                field.primary_key = True
-                self.setup_pk(field)
-            else:
-                auto = AutoField(verbose_name='ID', primary_key=True,
-                        auto_created=True)
-                model.add_to_class('id', auto)
+                if isinstance(field, OneToOneField):
+                    field.primary_key = True
+                    self.setup_pk(field)
+                    return
+
+            auto = AutoField(verbose_name='ID', primary_key=True, auto_created=True)
+            model.add_to_class('id', auto)
 
     def add_field(self, field):
         # Insert the given field in the order in which it was created, using
