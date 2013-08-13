@@ -216,6 +216,7 @@ class ModelBase(type):
                                      'with field of similar name from '
                                      'base class %r' %
                                         (field.name, name, base.__name__))
+
             if not base._meta.abstract:
                 # Concrete classes...
                 base = base._meta.concrete_model
@@ -229,6 +230,13 @@ class ModelBase(type):
                 else:
                     field = None
                 new_class._meta.parents[base] = field
+
+                # Copy managers from the concrete base classes.
+                # We inherit these no matter what because of the MRO, so we
+                # might as well copy them so they return the correct type.
+                new_class.copy_managers(base._meta.abstract_managers)
+                new_class.copy_managers(base._meta.concrete_managers)
+
             else:
                 # .. and abstract ones.
                 for field in parent_fields:
@@ -237,8 +245,8 @@ class ModelBase(type):
                 # Pass any non-abstract parent classes onto child.
                 new_class._meta.parents.update(base._meta.parents)
 
-            # Inherit managers from the abstract base classes.
-            new_class.copy_managers(base._meta.abstract_managers)
+                # Inherit managers from the abstract base classes.
+                new_class.copy_managers(base._meta.abstract_managers)
 
             # Proxy models inherit the non-abstract managers from their base,
             # unless they have redefined any of them.

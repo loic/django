@@ -110,12 +110,6 @@ class Child5(AbstractBase3):
     def __str__(self):
         return self.name
 
-
-# Will inherit managers from AbstractBase1, but not Child4.
-class Child6(Child4):
-    value = models.IntegerField()
-
-
 # Will not inherit default manager from parent.
 class Child7(Parent):
     pass
