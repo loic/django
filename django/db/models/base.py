@@ -58,7 +58,7 @@ class ModelBase(type):
     def __new__(cls, name, bases, attrs):
         super_new = super(ModelBase, cls).__new__
 
-        # six.with_metaclass() inserts an extra class called 'NewBase' in the
+        # `six.with_metaclass()` inserts an extra class called "NewBase" in the
         # inheritance tree: Model -> NewBase -> object. But the initialization
         # should be executed only once for a given model class.
 
@@ -67,24 +67,48 @@ class ModelBase(type):
         if name == 'NewBase' and attrs == {}:
             return super_new(cls, name, bases, attrs)
 
-        # Also ensure initialization is only performed for subclasses of Model
-        # (excluding Model class itself).
-        parents = [b for b in bases if isinstance(b, ModelBase) and
-                not (b.__name__ == 'NewBase' and b.__mro__ == (b, object))]
-        if not parents:
+        # Ensure initialization is only performed for subclasses of `Model`
+        # and not on `Model` itself.
+        parents = []
+        abstract_parents = []
+        concrete_parents = []
+        is_subclass = False
+        for base in bases:
+            # Skip anything that is not a subclass of Model.
+            if not isinstance(base, ModelBase):
+                continue
+
+            # Skip the `NewBase` artifact from `six.with_metaclass()`.
+            if base.__name__ == 'NewBase' and base.__mro__ == (base, object):
+                continue
+
+            # If we made it this far, `new_class` will be a subclass
+            # of `Model` and not `Model` itself.
+            is_subclass = True
+
+            # Conceptually equivalent to `if base is not Model`.
+            if hasattr(base, '_meta'):
+                parents.append(base)
+                if base._meta.abstract:
+                    abstract_parents.append(base)
+                else:
+                    concrete_parents.append(base)
+
+        # `new_class` will be `Model` itself, we are done.
+        if not is_subclass:
             return super_new(cls, name, bases, attrs)
 
-        # Create the class.
+        # Create the new `Model` subclass.
         module = attrs.pop('__module__')
         new_class = super_new(cls, name, bases, {'__module__': module})
+
+        # Figure out the `_meta` attribute.
         attr_meta = attrs.pop('Meta', None)
-        abstract = getattr(attr_meta, 'abstract', False)
         if not attr_meta:
             meta = getattr(new_class, 'Meta', None)
         else:
             meta = attr_meta
         base_meta = getattr(new_class, '_meta', None)
-
         if getattr(meta, 'app_label', None) is None:
             # Figure out the app_label by looking one level up from the package
             # or module named 'models'. If no such package or module exists,
@@ -104,32 +128,39 @@ class ModelBase(type):
             kwargs = {"app_label": package_components[app_label_index]}
         else:
             kwargs = {}
-
         new_class.add_to_class('_meta', Options(meta, **kwargs))
-        if not abstract:
+
+        # Bail out early if we have already created this class.
+        model = get_model(new_class._meta.app_label, name,
+                      seed_cache=False, only_installed=False)
+        if model is not None:
+            return model
+
+        is_abstract = new_class._meta.abstract
+        if not is_abstract:
+            # Create the DoesNotExist and MultipleObjectsReturned exception
+            # based on the concrete parents' exceptions if any.
             new_class.add_to_class('DoesNotExist', subclass_exception(str('DoesNotExist'),
-                    tuple(x.DoesNotExist
-                          for x in parents if hasattr(x, '_meta') and not x._meta.abstract)
+                    tuple(p.DoesNotExist for p in concrete_parents)
                     or (ObjectDoesNotExist,),
                     module, attached_to=new_class))
             new_class.add_to_class('MultipleObjectsReturned', subclass_exception(str('MultipleObjectsReturned'),
-                    tuple(x.MultipleObjectsReturned
-                          for x in parents if hasattr(x, '_meta') and not x._meta.abstract)
+                    tuple(p.MultipleObjectsReturned for p in concrete_parents)
                     or (MultipleObjectsReturned,),
                     module, attached_to=new_class))
+
+            # Non-abstract child classes inherit some attributes from their
+            # non-abstract parent (unless an abstract model comes before it
+            # in the method resolution order).
             if base_meta and not base_meta.abstract:
-                # Non-abstract child classes inherit some attributes from their
-                # non-abstract parent (unless an ABC comes before it in the
-                # method resolution order).
                 if not hasattr(meta, 'ordering'):
                     new_class._meta.ordering = base_meta.ordering
                 if not hasattr(meta, 'get_latest_by'):
                     new_class._meta.get_latest_by = base_meta.get_latest_by
 
-        is_proxy = new_class._meta.proxy
-
         # If the model is a proxy, ensure that the base class
         # hasn't been swapped out.
+        is_proxy = new_class._meta.proxy
         if is_proxy and base_meta and base_meta.swapped:
             raise TypeError("%s cannot proxy the swapped model '%s'." % (name, base_meta.swapped))
 
@@ -145,12 +176,6 @@ class ModelBase(type):
                 new_class._default_manager = new_class._default_manager._copy_to_model(new_class)
                 new_class._base_manager = new_class._base_manager._copy_to_model(new_class)
 
-        # Bail out early if we have already created this class.
-        m = get_model(new_class._meta.app_label, name,
-                      seed_cache=False, only_installed=False)
-        if m is not None:
-            return m
-
         # Add all attributes to the class.
         for obj_name, obj in attrs.items():
             new_class.add_to_class(obj_name, obj)
@@ -164,7 +189,7 @@ class ModelBase(type):
         # Basic setup for proxy models.
         if is_proxy:
             base = None
-            for parent in [cls for cls in parents if hasattr(cls, '_meta')]:
+            for parent in parents:
                 if parent._meta.abstract:
                     if parent._meta.fields:
                         raise TypeError("Abstract base class containing model fields not permitted for proxy model '%s'." % name)
@@ -186,14 +211,7 @@ class ModelBase(type):
 
         # Collect the parent links for multi-table inheritance.
         parent_links = {}
-        for base in reversed([new_class] + parents):
-            # Conceptually equivalent to `if base is Model`.
-            if not hasattr(base, '_meta'):
-                continue
-            # Skip concrete parent classes.
-            if base != new_class and not base._meta.abstract:
-                continue
-            # Locate OneToOneField instances.
+        for base in reversed([new_class] + abstract_parents):
             for field in base._meta.local_fields:
                 if isinstance(field, OneToOneField):
                     parent_links[field.rel.to] = field
@@ -201,12 +219,8 @@ class ModelBase(type):
         # Do the appropriate setup for any model parents.
         for base in parents:
             original_base = base
-            if not hasattr(base, '_meta'):
-                # Things without _meta aren't functional models, so they're
-                # uninteresting parents.
-                continue
-
             parent_fields = base._meta.local_fields + base._meta.local_many_to_many
+
             # Check for clashes between locally declared fields and those
             # on the base classes (we cannot handle shadowed fields at the
             # moment).
@@ -216,8 +230,9 @@ class ModelBase(type):
                                      'with field of similar name from '
                                      'base class %r' %
                                         (field.name, name, base.__name__))
+
+            # Concrete model: multi-table inheritance.
             if not base._meta.abstract:
-                # Concrete classes...
                 base = base._meta.concrete_model
                 if base in parent_links:
                     field = parent_links[base]
@@ -229,15 +244,17 @@ class ModelBase(type):
                 else:
                     field = None
                 new_class._meta.parents[base] = field
+
+            # Abstract model.
             else:
-                # .. and abstract ones.
                 for field in parent_fields:
                     new_class.add_to_class(field.name, copy.deepcopy(field))
 
                 # Pass any non-abstract parent classes onto child.
                 new_class._meta.parents.update(base._meta.parents)
 
-            # Inherit managers from the abstract base classes.
+            # Inherit managers from the abstract parents, including abstract
+            # parents of concrete parents.
             new_class.copy_managers(base._meta.abstract_managers)
 
             # Proxy models inherit the non-abstract managers from their base,
@@ -246,7 +263,7 @@ class ModelBase(type):
                 new_class.copy_managers(original_base._meta.concrete_managers)
 
             # Inherit virtual fields (like GenericForeignKey) from the parent
-            # class
+            # model.
             for field in base._meta.virtual_fields:
                 if base._meta.abstract and field.name in field_names:
                     raise FieldError('Local field %r in class %r clashes '
@@ -255,7 +272,7 @@ class ModelBase(type):
                                         (field.name, name, base.__name__))
                 new_class.add_to_class(field.name, copy.deepcopy(field))
 
-        if abstract:
+        if is_abstract:
             # Abstract base models can't be instantiated and don't appear in
             # the list of models for an app. We do the final setup for them a
             # little differently from normal models.
