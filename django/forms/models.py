@@ -391,7 +391,7 @@ class BaseModelForm(BaseForm):
                         if message.code in field.error_messages:
                             message.message = field.error_messages[message.code]
 
-            self._update_errors(e)
+            self.add_errors(None, e)
 
         # Validate uniqueness if needed.
         if self._validate_unique:
@@ -406,7 +406,7 @@ class BaseModelForm(BaseForm):
         try:
             self.instance.validate_unique(exclude=exclude)
         except ValidationError as e:
-            self._update_errors(e)
+            self.add_errors(None, e)
 
     def save(self, commit=True):
         """
