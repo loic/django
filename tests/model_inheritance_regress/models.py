@@ -167,7 +167,8 @@ class BirthdayParty(AbstractEvent):
     pass
 
 class BachelorParty(AbstractEvent):
-    pass
+    objects = models.Manager()
+    bachelors = models.Manager()
 
 class MessyBachelorParty(BachelorParty):
     pass
