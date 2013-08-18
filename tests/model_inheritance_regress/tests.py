@@ -268,6 +268,14 @@ class ModelInheritanceTest(TestCase):
         pos = fragment.find('pub_date')
         self.assertEqual(fragment.find('pub_date', pos + 1), -1)
 
+
+    def test_inherited_manager(self):
+        self.assertTrue(hasattr(MessyBachelorParty, 'bachelors'))
+
+        MessyBachelorParty.objects.create(name='Bachelor party for Dave')
+
+        self.assertTrue(isinstance(MessyBachelorParty.bachelors.first(), MessyBachelorParty))
+
     def test_queryset_update_on_parent_model(self):
         """
         Regression test for #10362

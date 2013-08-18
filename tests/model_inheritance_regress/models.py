@@ -155,6 +155,7 @@ class Person(models.Model):
 class AbstractEvent(models.Model):
     name = models.CharField(max_length=100)
     attendees = models.ManyToManyField(Person, related_name="%(class)s_set")
+    events = models.Manager()
 
     class Meta:
         abstract = True
@@ -164,10 +165,12 @@ class AbstractEvent(models.Model):
         return self.name
 
 class BirthdayParty(AbstractEvent):
-    pass
+    objects = models.Manager()
+    birthdays = models.Manager()
 
 class BachelorParty(AbstractEvent):
-    pass
+    objects = models.Manager()
+    bachelors = models.Manager()
 
 class MessyBachelorParty(BachelorParty):
     pass
