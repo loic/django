@@ -200,7 +200,6 @@ class ModelBase(type):
 
         # Do the appropriate setup for any model parents.
         for base in parents:
-            original_base = base
             if not hasattr(base, '_meta'):
                 # Things without _meta aren't functional models, so they're
                 # uninteresting parents.
@@ -230,11 +229,6 @@ class ModelBase(type):
                     field = None
                 new_class._meta.parents[base] = field
 
-                # Copy managers from the concrete base classes.
-                # We inherit these no matter what because of the MRO, so we
-                # might as well copy them so they return the correct type.
-                new_class.copy_managers(base._meta.abstract_managers)
-                new_class.copy_managers(base._meta.concrete_managers)
             else:
                 # .. and abstract ones.
                 for field in parent_fields:
@@ -243,13 +237,12 @@ class ModelBase(type):
                 # Pass any non-abstract parent classes onto child.
                 new_class._meta.parents.update(base._meta.parents)
 
-                # Inherit managers from the abstract base classes.
-                new_class.copy_managers(base._meta.abstract_managers)
+            # Copy all managers, we inherit these no matter what because
+            # of the MRO, so we might as well copy them so they return the
+            # correct type.
 
-            # Proxy models inherit the non-abstract managers from their base,
-            # unless they have redefined any of them.
-            if is_proxy:
-                new_class.copy_managers(original_base._meta.concrete_managers)
+            new_class.copy_managers(base._meta.abstract_managers)
+            new_class.copy_managers(base._meta.concrete_managers)
 
             # Inherit virtual fields (like GenericForeignKey) from the parent
             # class
