@@ -140,6 +140,9 @@ class CustomManagerTests(TestCase):
             lambda c: c.first_name
         )
 
+        with self.assertRaises(AttributeError):
+            self.b1.favorite_books(manager='fun_people').clear()
+
     def test_related_manager_gfk(self):
         self.p1.favorite_thing = self.b1
         self.p1.save()
@@ -166,6 +169,9 @@ class CustomManagerTests(TestCase):
             lambda c: c.first_name
         )
 
+        with self.assertRaises(AttributeError):
+            self.b1.favorite_things(manager='fun_people').clear()
+
     def test_related_manager_m2m(self):
         self.b1.authors.add(self.p1)
         self.b1.authors.add(self.p2)
@@ -189,3 +195,6 @@ class CustomManagerTests(TestCase):
             ],
             lambda c: c.first_name
         )
+
+        with self.assertRaises(AttributeError):
+            self.b1.authors(manager='fun_people').clear()

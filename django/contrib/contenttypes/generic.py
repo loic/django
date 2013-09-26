@@ -291,7 +291,7 @@ class ReverseGenericRelatedObjectsDescriptor(object):
         for obj in value:
             manager.add(obj)
 
-def create_generic_related_manager(superclass):
+def create_generic_related_manager(superclass, disable_alter_methods=False):
     """
     Factory function for a manager that subclasses 'superclass' (which is a
     Manager) and adds behavior for generic related objects.
@@ -323,7 +323,7 @@ def create_generic_related_manager(superclass):
             # We use **kwargs rather than a kwarg argument to enforce the
             # `manager='manager_name'` syntax.
             manager = getattr(self.model, kwargs.pop('manager'))
-            manager_class = create_generic_related_manager(manager.__class__)
+            manager_class = create_generic_related_manager(manager.__class__, disable_alter_methods=True)
             return manager_class(
                 model = self.model,
                 instance = self.instance,
@@ -360,33 +360,34 @@ def create_generic_related_manager(superclass):
                     False,
                     self.prefetch_cache_name)
 
-        def add(self, *objs):
-            for obj in objs:
-                if not isinstance(obj, self.model):
-                    raise TypeError("'%s' instance expected" % self.model._meta.object_name)
-                setattr(obj, self.content_type_field_name, self.content_type)
-                setattr(obj, self.object_id_field_name, self.pk_val)
-                obj.save()
-        add.alters_data = True
+        if not disable_alter_methods:
+            def add(self, *objs):
+                for obj in objs:
+                    if not isinstance(obj, self.model):
+                        raise TypeError("'%s' instance expected" % self.model._meta.object_name)
+                    setattr(obj, self.content_type_field_name, self.content_type)
+                    setattr(obj, self.object_id_field_name, self.pk_val)
+                    obj.save()
+            add.alters_data = True
 
-        def remove(self, *objs):
-            db = router.db_for_write(self.model, instance=self.instance)
-            for obj in objs:
-                obj.delete(using=db)
-        remove.alters_data = True
+            def remove(self, *objs):
+                db = router.db_for_write(self.model, instance=self.instance)
+                for obj in objs:
+                    obj.delete(using=db)
+            remove.alters_data = True
 
-        def clear(self):
-            db = router.db_for_write(self.model, instance=self.instance)
-            for obj in self.all():
-                obj.delete(using=db)
-        clear.alters_data = True
+            def clear(self):
+                db = router.db_for_write(self.model, instance=self.instance)
+                for obj in self.all():
+                    obj.delete(using=db)
+            clear.alters_data = True
 
-        def create(self, **kwargs):
-            kwargs[self.content_type_field_name] = self.content_type
-            kwargs[self.object_id_field_name] = self.pk_val
-            db = router.db_for_write(self.model, instance=self.instance)
-            return super(GenericRelatedObjectManager, self).using(db).create(**kwargs)
-        create.alters_data = True
+            def create(self, **kwargs):
+                kwargs[self.content_type_field_name] = self.content_type
+                kwargs[self.object_id_field_name] = self.pk_val
+                db = router.db_for_write(self.model, instance=self.instance)
+                return super(GenericRelatedObjectManager, self).using(db).create(**kwargs)
+            create.alters_data = True
 
     return GenericRelatedObjectManager
 

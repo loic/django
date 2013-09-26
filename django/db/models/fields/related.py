@@ -365,7 +365,7 @@ class ReverseSingleRelatedObjectDescriptor(six.with_metaclass(RenameRelatedObjec
             setattr(value, self.field.related.get_cache_name(), instance)
 
 
-def create_foreign_related_manager(superclass, rel_field, rel_model):
+def create_foreign_related_manager(superclass, rel_field, rel_model, disable_alter_methods=False):
     class RelatedManager(superclass):
         def __init__(self, instance):
             super(RelatedManager, self).__init__()
@@ -377,7 +377,7 @@ def create_foreign_related_manager(superclass, rel_field, rel_model):
             # We use **kwargs rather than a kwarg argument to enforce the
             # `manager='manager_name'` syntax.
             manager = getattr(self.model, kwargs.pop('manager'))
-            manager_class = create_foreign_related_manager(manager.__class__, rel_field, rel_model)
+            manager_class = create_foreign_related_manager(manager.__class__, rel_field, rel_model, disable_alter_methods=True)
             return manager_class(self.instance)
 
         def get_queryset(self):
@@ -409,44 +409,45 @@ def create_foreign_related_manager(superclass, rel_field, rel_model):
             cache_name = rel_field.related_query_name()
             return qs, rel_obj_attr, instance_attr, False, cache_name
 
-        def add(self, *objs):
-            for obj in objs:
-                if not isinstance(obj, self.model):
-                    raise TypeError("'%s' instance expected, got %r" % (self.model._meta.object_name, obj))
-                setattr(obj, rel_field.name, self.instance)
-                obj.save()
-        add.alters_data = True
-
-        def create(self, **kwargs):
-            kwargs[rel_field.name] = self.instance
-            db = router.db_for_write(self.model, instance=self.instance)
-            return super(RelatedManager, self.db_manager(db)).create(**kwargs)
-        create.alters_data = True
-
-        def get_or_create(self, **kwargs):
-            # Update kwargs with the related object that this
-            # ForeignRelatedObjectsDescriptor knows about.
-            kwargs[rel_field.name] = self.instance
-            db = router.db_for_write(self.model, instance=self.instance)
-            return super(RelatedManager, self.db_manager(db)).get_or_create(**kwargs)
-        get_or_create.alters_data = True
-
-        # remove() and clear() are only provided if the ForeignKey can have a value of null.
-        if rel_field.null:
-            def remove(self, *objs):
-                val = rel_field.get_foreign_related_value(self.instance)
+        if not disable_alter_methods:
+            def add(self, *objs):
                 for obj in objs:
-                    # Is obj actually part of this descriptor set?
-                    if rel_field.get_local_related_value(obj) == val:
-                        setattr(obj, rel_field.name, None)
-                        obj.save()
-                    else:
-                        raise rel_field.rel.to.DoesNotExist("%r is not related to %r." % (obj, self.instance))
-            remove.alters_data = True
+                    if not isinstance(obj, self.model):
+                        raise TypeError("'%s' instance expected, got %r" % (self.model._meta.object_name, obj))
+                    setattr(obj, rel_field.name, self.instance)
+                    obj.save()
+            add.alters_data = True
 
-            def clear(self):
-                self.update(**{rel_field.name: None})
-            clear.alters_data = True
+            def create(self, **kwargs):
+                kwargs[rel_field.name] = self.instance
+                db = router.db_for_write(self.model, instance=self.instance)
+                return super(RelatedManager, self.db_manager(db)).create(**kwargs)
+            create.alters_data = True
+
+            def get_or_create(self, **kwargs):
+                # Update kwargs with the related object that this
+                # ForeignRelatedObjectsDescriptor knows about.
+                kwargs[rel_field.name] = self.instance
+                db = router.db_for_write(self.model, instance=self.instance)
+                return super(RelatedManager, self.db_manager(db)).get_or_create(**kwargs)
+            get_or_create.alters_data = True
+
+            # remove() and clear() are only provided if the ForeignKey can have a value of null.
+            if rel_field.null:
+                def remove(self, *objs):
+                    val = rel_field.get_foreign_related_value(self.instance)
+                    for obj in objs:
+                        # Is obj actually part of this descriptor set?
+                        if rel_field.get_local_related_value(obj) == val:
+                            setattr(obj, rel_field.name, None)
+                            obj.save()
+                        else:
+                            raise rel_field.rel.to.DoesNotExist("%r is not related to %r." % (obj, self.instance))
+                remove.alters_data = True
+
+                def clear(self):
+                    self.update(**{rel_field.name: None})
+                clear.alters_data = True
 
     return RelatedManager
 
@@ -485,7 +486,7 @@ class ForeignRelatedObjectsDescriptor(object):
         )
 
 
-def create_many_related_manager(superclass, rel):
+def create_many_related_manager(superclass, rel, disable_alter_methods=False):
     """Creates a manager that subclasses 'superclass' (which is a Manager)
     and adds behavior for many-to-many related objects."""
     class ManyRelatedManager(superclass):
@@ -528,7 +529,7 @@ def create_many_related_manager(superclass, rel):
             # We use **kwargs rather than a kwarg argument to enforce the
             # `manager='manager_name'` syntax.
             manager = getattr(self.model, kwargs.pop('manager'))
-            manager_class = create_many_related_manager(manager.__class__, rel)
+            manager_class = create_many_related_manager(manager.__class__, rel, disable_alter_methods=True)
             return manager_class(
                 model=self.model,
                 query_field_name=self.query_field_name,
@@ -574,165 +575,166 @@ def create_many_related_manager(superclass, rel):
                     False,
                     self.prefetch_cache_name)
 
-        # If the ManyToMany relation has an intermediary model,
-        # the add and remove methods do not exist.
-        if rel.through._meta.auto_created:
-            def add(self, *objs):
-                self._add_items(self.source_field_name, self.target_field_name, *objs)
+        if not disable_alter_methods:
+            # If the ManyToMany relation has an intermediary model,
+            # the add and remove methods do not exist.
+            if rel.through._meta.auto_created:
+                def add(self, *objs):
+                    self._add_items(self.source_field_name, self.target_field_name, *objs)
 
-                # If this is a symmetrical m2m relation to self, add the mirror entry in the m2m table
+                    # If this is a symmetrical m2m relation to self, add the mirror entry in the m2m table
+                    if self.symmetrical:
+                        self._add_items(self.target_field_name, self.source_field_name, *objs)
+                add.alters_data = True
+
+                def remove(self, *objs):
+                    self._remove_items(self.source_field_name, self.target_field_name, *objs)
+
+                    # If this is a symmetrical m2m relation to self, remove the mirror entry in the m2m table
+                    if self.symmetrical:
+                        self._remove_items(self.target_field_name, self.source_field_name, *objs)
+                remove.alters_data = True
+
+            def clear(self):
+                self._clear_items(self.source_field_name)
+
+                # If this is a symmetrical m2m relation to self, clear the mirror entry in the m2m table
                 if self.symmetrical:
-                    self._add_items(self.target_field_name, self.source_field_name, *objs)
-            add.alters_data = True
+                    self._clear_items(self.target_field_name)
+            clear.alters_data = True
 
-            def remove(self, *objs):
-                self._remove_items(self.source_field_name, self.target_field_name, *objs)
+            def create(self, **kwargs):
+                # This check needs to be done here, since we can't later remove this
+                # from the method lookup table, as we do with add and remove.
+                if not self.through._meta.auto_created:
+                    opts = self.through._meta
+                    raise AttributeError("Cannot use create() on a ManyToManyField which specifies an intermediary model. Use %s.%s's Manager instead." % (opts.app_label, opts.object_name))
+                db = router.db_for_write(self.instance.__class__, instance=self.instance)
+                new_obj = super(ManyRelatedManager, self.db_manager(db)).create(**kwargs)
+                self.add(new_obj)
+                return new_obj
+            create.alters_data = True
 
-                # If this is a symmetrical m2m relation to self, remove the mirror entry in the m2m table
-                if self.symmetrical:
-                    self._remove_items(self.target_field_name, self.source_field_name, *objs)
-            remove.alters_data = True
+            def get_or_create(self, **kwargs):
+                db = router.db_for_write(self.instance.__class__, instance=self.instance)
+                obj, created = \
+                    super(ManyRelatedManager, self.db_manager(db)).get_or_create(**kwargs)
+                # We only need to add() if created because if we got an object back
+                # from get() then the relationship already exists.
+                if created:
+                    self.add(obj)
+                return obj, created
+            get_or_create.alters_data = True
 
-        def clear(self):
-            self._clear_items(self.source_field_name)
+            def _add_items(self, source_field_name, target_field_name, *objs):
+                # source_field_name: the PK fieldname in join table for the source object
+                # target_field_name: the PK fieldname in join table for the target object
+                # *objs - objects to add. Either object instances, or primary keys of object instances.
 
-            # If this is a symmetrical m2m relation to self, clear the mirror entry in the m2m table
-            if self.symmetrical:
-                self._clear_items(self.target_field_name)
-        clear.alters_data = True
-
-        def create(self, **kwargs):
-            # This check needs to be done here, since we can't later remove this
-            # from the method lookup table, as we do with add and remove.
-            if not self.through._meta.auto_created:
-                opts = self.through._meta
-                raise AttributeError("Cannot use create() on a ManyToManyField which specifies an intermediary model. Use %s.%s's Manager instead." % (opts.app_label, opts.object_name))
-            db = router.db_for_write(self.instance.__class__, instance=self.instance)
-            new_obj = super(ManyRelatedManager, self.db_manager(db)).create(**kwargs)
-            self.add(new_obj)
-            return new_obj
-        create.alters_data = True
-
-        def get_or_create(self, **kwargs):
-            db = router.db_for_write(self.instance.__class__, instance=self.instance)
-            obj, created = \
-                super(ManyRelatedManager, self.db_manager(db)).get_or_create(**kwargs)
-            # We only need to add() if created because if we got an object back
-            # from get() then the relationship already exists.
-            if created:
-                self.add(obj)
-            return obj, created
-        get_or_create.alters_data = True
-
-        def _add_items(self, source_field_name, target_field_name, *objs):
-            # source_field_name: the PK fieldname in join table for the source object
-            # target_field_name: the PK fieldname in join table for the target object
-            # *objs - objects to add. Either object instances, or primary keys of object instances.
-
-            # If there aren't any objects, there is nothing to do.
-            from django.db.models import Model
-            if objs:
-                new_ids = set()
-                for obj in objs:
-                    if isinstance(obj, self.model):
-                        if not router.allow_relation(obj, self.instance):
-                            raise ValueError('Cannot add "%r": instance is on database "%s", value is on database "%s"' %
-                                               (obj, self.instance._state.db, obj._state.db))
-                        fk_val = self.through._meta.get_field(
-                            target_field_name).get_foreign_related_value(obj)[0]
-                        if fk_val is None:
-                            raise ValueError('Cannot add "%r": the value for field "%s" is None' %
-                                             (obj, target_field_name))
-                        new_ids.add(fk_val)
-                    elif isinstance(obj, Model):
-                        raise TypeError("'%s' instance expected, got %r" % (self.model._meta.object_name, obj))
-                    else:
-                        new_ids.add(obj)
-                db = router.db_for_write(self.through, instance=self.instance)
-                vals = self.through._default_manager.using(db).values_list(target_field_name, flat=True)
-                vals = vals.filter(**{
-                    source_field_name: self.related_val[0],
-                    '%s__in' % target_field_name: new_ids,
-                })
-                new_ids = new_ids - set(vals)
-
-                if self.reverse or source_field_name == self.source_field_name:
-                    # Don't send the signal when we are inserting the
-                    # duplicate data row for symmetrical reverse entries.
-                    signals.m2m_changed.send(sender=self.through, action='pre_add',
-                        instance=self.instance, reverse=self.reverse,
-                        model=self.model, pk_set=new_ids, using=db)
-                # Add the ones that aren't there already
-                self.through._default_manager.using(db).bulk_create([
-                    self.through(**{
-                        '%s_id' % source_field_name: self.related_val[0],
-                        '%s_id' % target_field_name: obj_id,
+                # If there aren't any objects, there is nothing to do.
+                from django.db.models import Model
+                if objs:
+                    new_ids = set()
+                    for obj in objs:
+                        if isinstance(obj, self.model):
+                            if not router.allow_relation(obj, self.instance):
+                                raise ValueError('Cannot add "%r": instance is on database "%s", value is on database "%s"' %
+                                                   (obj, self.instance._state.db, obj._state.db))
+                            fk_val = self.through._meta.get_field(
+                                target_field_name).get_foreign_related_value(obj)[0]
+                            if fk_val is None:
+                                raise ValueError('Cannot add "%r": the value for field "%s" is None' %
+                                                 (obj, target_field_name))
+                            new_ids.add(fk_val)
+                        elif isinstance(obj, Model):
+                            raise TypeError("'%s' instance expected, got %r" % (self.model._meta.object_name, obj))
+                        else:
+                            new_ids.add(obj)
+                    db = router.db_for_write(self.through, instance=self.instance)
+                    vals = self.through._default_manager.using(db).values_list(target_field_name, flat=True)
+                    vals = vals.filter(**{
+                        source_field_name: self.related_val[0],
+                        '%s__in' % target_field_name: new_ids,
                     })
-                    for obj_id in new_ids
-                ])
+                    new_ids = new_ids - set(vals)
 
-                if self.reverse or source_field_name == self.source_field_name:
-                    # Don't send the signal when we are inserting the
-                    # duplicate data row for symmetrical reverse entries.
-                    signals.m2m_changed.send(sender=self.through, action='post_add',
-                        instance=self.instance, reverse=self.reverse,
-                        model=self.model, pk_set=new_ids, using=db)
+                    if self.reverse or source_field_name == self.source_field_name:
+                        # Don't send the signal when we are inserting the
+                        # duplicate data row for symmetrical reverse entries.
+                        signals.m2m_changed.send(sender=self.through, action='pre_add',
+                            instance=self.instance, reverse=self.reverse,
+                            model=self.model, pk_set=new_ids, using=db)
+                    # Add the ones that aren't there already
+                    self.through._default_manager.using(db).bulk_create([
+                        self.through(**{
+                            '%s_id' % source_field_name: self.related_val[0],
+                            '%s_id' % target_field_name: obj_id,
+                        })
+                        for obj_id in new_ids
+                    ])
 
-        def _remove_items(self, source_field_name, target_field_name, *objs):
-            # source_field_name: the PK colname in join table for the source object
-            # target_field_name: the PK colname in join table for the target object
-            # *objs - objects to remove
+                    if self.reverse or source_field_name == self.source_field_name:
+                        # Don't send the signal when we are inserting the
+                        # duplicate data row for symmetrical reverse entries.
+                        signals.m2m_changed.send(sender=self.through, action='post_add',
+                            instance=self.instance, reverse=self.reverse,
+                            model=self.model, pk_set=new_ids, using=db)
 
-            # If there aren't any objects, there is nothing to do.
-            if objs:
-                # Check that all the objects are of the right type
-                old_ids = set()
-                for obj in objs:
-                    if isinstance(obj, self.model):
-                        fk_val = self.through._meta.get_field(
-                            target_field_name).get_foreign_related_value(obj)[0]
-                        old_ids.add(fk_val)
-                    else:
-                        old_ids.add(obj)
-                # Work out what DB we're operating on
+            def _remove_items(self, source_field_name, target_field_name, *objs):
+                # source_field_name: the PK colname in join table for the source object
+                # target_field_name: the PK colname in join table for the target object
+                # *objs - objects to remove
+
+                # If there aren't any objects, there is nothing to do.
+                if objs:
+                    # Check that all the objects are of the right type
+                    old_ids = set()
+                    for obj in objs:
+                        if isinstance(obj, self.model):
+                            fk_val = self.through._meta.get_field(
+                                target_field_name).get_foreign_related_value(obj)[0]
+                            old_ids.add(fk_val)
+                        else:
+                            old_ids.add(obj)
+                    # Work out what DB we're operating on
+                    db = router.db_for_write(self.through, instance=self.instance)
+                    # Send a signal to the other end if need be.
+                    if self.reverse or source_field_name == self.source_field_name:
+                        # Don't send the signal when we are deleting the
+                        # duplicate data row for symmetrical reverse entries.
+                        signals.m2m_changed.send(sender=self.through, action="pre_remove",
+                            instance=self.instance, reverse=self.reverse,
+                            model=self.model, pk_set=old_ids, using=db)
+                    # Remove the specified objects from the join table
+                    self.through._default_manager.using(db).filter(**{
+                        source_field_name: self.related_val[0],
+                        '%s__in' % target_field_name: old_ids
+                    }).delete()
+                    if self.reverse or source_field_name == self.source_field_name:
+                        # Don't send the signal when we are deleting the
+                        # duplicate data row for symmetrical reverse entries.
+                        signals.m2m_changed.send(sender=self.through, action="post_remove",
+                            instance=self.instance, reverse=self.reverse,
+                            model=self.model, pk_set=old_ids, using=db)
+
+            def _clear_items(self, source_field_name):
                 db = router.db_for_write(self.through, instance=self.instance)
-                # Send a signal to the other end if need be.
+                # source_field_name: the PK colname in join table for the source object
                 if self.reverse or source_field_name == self.source_field_name:
-                    # Don't send the signal when we are deleting the
-                    # duplicate data row for symmetrical reverse entries.
-                    signals.m2m_changed.send(sender=self.through, action="pre_remove",
+                    # Don't send the signal when we are clearing the
+                    # duplicate data rows for symmetrical reverse entries.
+                    signals.m2m_changed.send(sender=self.through, action="pre_clear",
                         instance=self.instance, reverse=self.reverse,
-                        model=self.model, pk_set=old_ids, using=db)
-                # Remove the specified objects from the join table
+                        model=self.model, pk_set=None, using=db)
                 self.through._default_manager.using(db).filter(**{
-                    source_field_name: self.related_val[0],
-                    '%s__in' % target_field_name: old_ids
+                    source_field_name: self.related_val
                 }).delete()
                 if self.reverse or source_field_name == self.source_field_name:
-                    # Don't send the signal when we are deleting the
-                    # duplicate data row for symmetrical reverse entries.
-                    signals.m2m_changed.send(sender=self.through, action="post_remove",
+                    # Don't send the signal when we are clearing the
+                    # duplicate data rows for symmetrical reverse entries.
+                    signals.m2m_changed.send(sender=self.through, action="post_clear",
                         instance=self.instance, reverse=self.reverse,
-                        model=self.model, pk_set=old_ids, using=db)
-
-        def _clear_items(self, source_field_name):
-            db = router.db_for_write(self.through, instance=self.instance)
-            # source_field_name: the PK colname in join table for the source object
-            if self.reverse or source_field_name == self.source_field_name:
-                # Don't send the signal when we are clearing the
-                # duplicate data rows for symmetrical reverse entries.
-                signals.m2m_changed.send(sender=self.through, action="pre_clear",
-                    instance=self.instance, reverse=self.reverse,
-                    model=self.model, pk_set=None, using=db)
-            self.through._default_manager.using(db).filter(**{
-                source_field_name: self.related_val
-            }).delete()
-            if self.reverse or source_field_name == self.source_field_name:
-                # Don't send the signal when we are clearing the
-                # duplicate data rows for symmetrical reverse entries.
-                signals.m2m_changed.send(sender=self.through, action="post_clear",
-                    instance=self.instance, reverse=self.reverse,
-                    model=self.model, pk_set=None, using=db)
+                        model=self.model, pk_set=None, using=db)
 
     return ManyRelatedManager
 
