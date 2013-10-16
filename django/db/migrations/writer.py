@@ -140,6 +140,9 @@ class MigrationWriter(object):
         elif isinstance(value, models.Field):
             attr_name, path, args, kwargs = value.deconstruct()
             return cls.serialize_deconstructed(path, args, kwargs)
+        # Anything that knows how to deconstruct itself.
+        elif hasattr(value, 'deconstruct'):
+            return cls.serialize_deconstructed(*value.deconstruct())
         # Functions
         elif isinstance(value, (types.FunctionType, types.BuiltinFunctionType)):
             # Special-cases, as these don't have im_class

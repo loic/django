@@ -412,8 +412,8 @@ class InteractiveMigrationQuestioner(MigrationQuestioner):
         "Should we create an initial migration for the app?"
         # Don't ask for django.contrib apps
         app = cache.get_app(app_label)
-        if app.__name__.startswith("django.contrib"):
-            return False
+        #if app.__name__.startswith("django.contrib"):
+        #    return False
         # If it was specified on the command line, definitely true
         if app_label in self.specified_apps:
             return True

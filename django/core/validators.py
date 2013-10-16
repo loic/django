@@ -14,7 +14,27 @@ from django.utils.six.moves.urllib.parse import urlsplit, urlunsplit
 EMPTY_VALUES = (None, '', [], (), {})
 
 
-class RegexValidator(object):
+class DeconstructValidator(object):
+    def __new__(cls, *args, **kwargs):
+        # We capture the arguments to make returning them trivial
+        self = object.__new__(cls)
+        self._constructor_args = (args, kwargs)
+        return self
+
+    def deconstruct(self):
+        """
+        Returns a 3-tuple of class import path (or just name if it lives
+        under django.db.migrations), positional arguments, and keyword
+        arguments.
+        """
+        return (
+            'django.core.validators.%s' % self.__class__.__name__,
+            self._constructor_args[0],
+            self._constructor_args[1],
+        )
+
+
+class RegexValidator(DeconstructValidator):
     regex = ''
     message = _('Enter a valid value.')
     code = 'invalid'
@@ -77,7 +97,7 @@ def validate_integer(value):
         raise ValidationError(_('Enter a valid integer.'), code='invalid')
 
 
-class EmailValidator(object):
+class EmailValidator(DeconstructValidator):
     message = _('Enter a valid email address.')
     code = 'invalid'
     user_regex = re.compile(
@@ -173,7 +193,7 @@ comma_separated_int_list_re = re.compile('^[\d,]+$')
 validate_comma_separated_integer_list = RegexValidator(comma_separated_int_list_re, _('Enter only digits separated by commas.'), 'invalid')
 
 
-class BaseValidator(object):
+class BaseValidator(DeconstructValidator):
     compare = lambda self, a, b: a is not b
     clean = lambda self, x: x
     message = _('Ensure this value is %(limit_value)s (it is %(show_value)s).')
