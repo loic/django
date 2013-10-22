@@ -8,7 +8,7 @@ import os
 
 from django.core.validators import RegexValidator, EmailValidator
 from django.db import models, migrations
-from django.db.migrations.writer import MigrationWriter
+from django.db.migrations.writer import MigrationWriter, SerializationError
 from django.db.models.loading import cache
 from django.test import TestCase, override_settings
 from django.utils import six
@@ -66,8 +66,6 @@ class WriterTests(TestCase):
         self.assertSerializedEqual({"lalalala": ["yeah", "no", "maybe"]})
         self.assertSerializedEqual(_('Hello'))
         # Functions
-        with six.assertRaisesRegex(self, ValueError, 'Cannot serialize function: lambda'):
-            self.assertSerializedEqual(lambda x: 42)
         self.assertSerializedEqual(models.SET_NULL)
         string, imports = MigrationWriter.serialize(models.SET(42))
         self.assertEqual(string, 'models.SET(42)')
@@ -135,3 +133,11 @@ class WriterTests(TestCase):
                     self.assertEqual(writer.path, expected_path)
         finally:
             cache.app_store = _old_app_store
+
+    def test_failing_serialization(self):
+        value = lambda x: 42
+        string, imports = MigrationWriter.serialize(value)
+        exec_string = "%s\ntest_value_result = %s" % ("\n".join(imports), string)
+
+        with self.assertRaises(SerializationError):
+            exec(exec_string, globals(), {})

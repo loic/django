@@ -11,6 +11,13 @@ from django.utils.encoding import force_text
 from django.utils.functional import Promise
 
 
+class SerializationError(Exception):
+    def __init__(self, *args, **kwargs):
+        super(SerializationError, self).__init__(*args, **kwargs)
+
+        raise self
+
+
 class MigrationWriter(object):
     """
     Takes a Migration instance and is able to produce the contents
@@ -53,6 +60,10 @@ class MigrationWriter(object):
         # If there's a replaces, make a string for it
         if self.migration.replaces:
             items['replaces_str'] = "\n    replaces = %s\n" % repr(self.migration.replaces)
+
+        if 'from django.db.migrations import SerializationError' in imports:
+            print("SerializationError detected.")
+
         return (MIGRATION_TEMPLATE % items).encode("utf8")
 
     @property
@@ -157,9 +168,9 @@ class MigrationWriter(object):
                 module = klass.__module__
                 return "%s.%s.%s" % (module, klass.__name__, value.__name__), set(["import %s" % module])
             elif value.__name__ == '<lambda>':
-                raise ValueError("Cannot serialize function: lambda")
+                return 'SerializationError("lambda function")', {'from django.db.migrations import SerializationError'}
             elif value.__module__ is None:
-                raise ValueError("Cannot serialize function %r: No module" % value)
+                return 'SerializationError("function")', {'from django.db.migrations import SerializationError'}
             else:
                 module = value.__module__
                 return "%s.%s" % (module, value.__name__), set(["import %s" % module])
@@ -176,8 +187,7 @@ class MigrationWriter(object):
                 return "%s.%s" % (module, value.__name__), set(["import %s" % module])
         # Uh oh.
         else:
-            raise ValueError("Cannot serialize: %r" % value)
-
+            return 'SerializationError()', {'from django.db.migrations import SerializationError'}
 
 MIGRATION_TEMPLATE = """# encoding: utf8
 from django.db import models, migrations

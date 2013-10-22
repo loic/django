@@ -6,6 +6,7 @@ import os
 import shutil
 
 from django.core.management import call_command
+from django.db.migrations import SerializationError
 from django.db.models.loading import cache
 from django.test.utils import override_settings
 from django.utils import six
@@ -163,9 +164,13 @@ class MakeMigrationsTests(MigrationTestBase):
         #21280 - If a migration fails to serialize, it shouldn't generate an empty file.
         cache.register_models('migrations', UnserializableModel)
 
-        with six.assertRaisesRegex(self, ValueError, r'Cannot serialize'):
-            with override_settings(MIGRATION_MODULES={"migrations": self.migration_pkg}):
-                    call_command("makemigrations", "migrations", verbosity=0)
+        with override_settings(MIGRATION_MODULES={"migrations": self.migration_pkg}):
+            call_command("makemigrations", "migrations", verbosity=0)
 
-        initial_file = os.path.join(self.migration_dir, "0001_initial.py")
-        self.assertFalse(os.path.exists(initial_file))
+            initial_file = os.path.join(self.migration_dir, "0001_initial.py")
+            self.assertTrue(os.path.exists(initial_file))
+            with open(initial_file, 'r') as f:
+                self.assertIn('SerializationError()', f.read())
+
+            with self.assertRaises(SerializationError):
+                call_command("migrate", "migrations", verbosity=0)
