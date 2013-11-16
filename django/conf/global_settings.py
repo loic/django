@@ -535,6 +535,12 @@ PASSWORD_HASHERS = (
     'django.contrib.auth.hashers.CryptPasswordHasher',
 )
 
+#############
+# REDIRECTS #
+#############
+
+REDIRECT_MODEL = 'redirects.Redirect'
+
 ###########
 # SIGNING #
 ###########
