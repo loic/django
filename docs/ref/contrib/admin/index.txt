@@ -1544,7 +1544,7 @@ templates used by the :class:`ModelAdmin` views:
     changelist page if :attr:`~ModelAdmin.list_editable` is used. To use a
     custom formset, for example::
 
-        from django.forms.models import BaseModelFormSet
+        from django.forms import BaseModelFormSet
 
         class MyAdminFormSet(BaseModelFormSet):
             pass
@@ -1860,14 +1860,14 @@ The ``InlineModelAdmin`` class adds:
 
 .. attribute:: InlineModelAdmin.formset
 
-    This defaults to :class:`~django.forms.models.BaseInlineFormSet`. Using
+    This defaults to :class:`~django.forms.BaseInlineFormSet`. Using
     your own formset can give you many possibilities of customization. Inlines
     are built around :ref:`model formsets <model-formsets>`.
 
 .. attribute:: InlineModelAdmin.form
 
     The value for ``form`` defaults to ``ModelForm``. This is what is passed
-    through to :func:`~django.forms.models.inlineformset_factory` when
+    through to :func:`~django.forms.inlineformset_factory` when
     creating the formset for this inline.
 
 .. attribute:: InlineModelAdmin.extra
@@ -1938,7 +1938,7 @@ The ``InlineModelAdmin`` class adds:
 
 .. method:: InlineModelAdmin.get_formset(self, request, obj=None, **kwargs)
 
-    Returns a :class:`~django.forms.models.BaseInlineFormSet` class for use in
+    Returns a :class:`~django.forms.BaseInlineFormSet` class for use in
     admin add/change views. See the example for
     :class:`ModelAdmin.get_formsets`.
 

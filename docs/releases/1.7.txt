@@ -326,7 +326,7 @@ Forms
   customize the wording of the months displayed in the select widget.
 
 * The ``min_num`` and ``validate_min`` parameters were added to
-  :func:`~django.forms.formsets.formset_factory` to allow validating
+  :func:`~django.forms.formset_factory` to allow validating
   a minimum number of submitted forms.
 
 * The metaclasses used by ``Form`` and ``ModelForm`` have been reworked to
@@ -556,9 +556,9 @@ Miscellaneous
   have a custom :class:`~django.core.files.uploadhandler.FileUploadHandler`
   that implements ``new_file()``, be sure it accepts this new parameter.
 
-* :class:`ModelFormSet<django.forms.models.BaseModelFormSet>`’s no longer
+* :class:`ModelFormSet<django.forms.BaseModelFormSet>`’s no longer
   delete instances when ``save(commit=False)`` is called. See
-  :attr:`~django.forms.formsets.BaseFormSet.can_delete` for instructions on how
+  :attr:`~django.forms.BaseFormSet.can_delete` for instructions on how
   to manually delete objects from deleted forms.
 
 * Loading empty fixtures emits a ``RuntimeWarning`` rather than raising

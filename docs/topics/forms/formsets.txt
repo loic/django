@@ -3,7 +3,7 @@
 Formsets
 ========
 
-.. module:: django.forms.formsets
+.. module:: django.forms
     :synopsis: An abstraction for working with multiple forms on the same page.
 
 .. class:: BaseFormSet
@@ -20,7 +20,7 @@ form::
 You might want to allow the user to create several articles at once. To create
 a formset out of an ``ArticleForm`` you would do::
 
-    >>> from django.forms.formsets import formset_factory
+    >>> from django.forms import formset_factory
     >>> ArticleFormSet = formset_factory(ArticleForm)
 
 You now have created a formset named ``ArticleFormSet``. The formset gives you
@@ -35,7 +35,7 @@ would with a regular form::
 
 As you can see it only displayed one empty form. The number of empty forms
 that is displayed is controlled by the ``extra`` parameter. By default,
-:func:`~django.forms.formsets.formset_factory` defines one extra form; the
+:func:`~django.forms.formset_factory` defines one extra form; the
 following example will display two blank forms::
 
     >>> ArticleFormSet = formset_factory(ArticleForm, extra=2)
@@ -60,7 +60,7 @@ number of forms it generates from the initial data. Lets take a look at an
 example::
 
     >>> import datetime
-    >>> from django.forms.formsets import formset_factory
+    >>> from django.forms import formset_factory
     >>> from myapp.forms import ArticleForm
     >>> ArticleFormSet = formset_factory(ArticleForm, extra=2)
     >>> formset = ArticleFormSet(initial=[
@@ -90,11 +90,11 @@ list of dictionaries as the initial data.
 Limiting the maximum number of forms
 ------------------------------------
 
-The ``max_num`` parameter to :func:`~django.forms.formsets.formset_factory`
+The ``max_num`` parameter to :func:`~django.forms.formset_factory`
 gives you the ability to limit the maximum number of empty forms the formset
 will display::
 
-    >>> from django.forms.formsets import formset_factory
+    >>> from django.forms import formset_factory
     >>> from myapp.forms import ArticleForm
     >>> ArticleFormSet = formset_factory(ArticleForm, extra=2, max_num=1)
     >>> formset = ArticleFormSet()
@@ -115,13 +115,13 @@ data forms will be displayed regardless.  (No extra forms will be displayed.)
 
 By default, ``max_num`` only affects how many forms are displayed and does not
 affect validation.  If ``validate_max=True`` is passed to the
-:func:`~django.forms.formsets.formset_factory`, then ``max_num`` will affect
+:func:`~django.forms.formset_factory`, then ``max_num`` will affect
 validation.  See :ref:`validate_max`.
 
 .. versionchanged:: 1.6
 
    The ``validate_max`` parameter was added to
-   :func:`~django.forms.formsets.formset_factory`.  Also, the behavior of
+   :func:`~django.forms.formset_factory`.  Also, the behavior of
    ``FormSet`` was brought in line with that of ``ModelFormSet`` so that it
    displays initial data regardless of ``max_num``.
 
@@ -132,7 +132,7 @@ Validation with a formset is almost identical to a regular ``Form``. There is
 an ``is_valid`` method on the formset to provide a convenient way to validate
 all forms in the formset::
 
-    >>> from django.forms.formsets import formset_factory
+    >>> from django.forms import formset_factory
     >>> from myapp.forms import ArticleForm
     >>> ArticleFormSet = formset_factory(ArticleForm)
     >>> data = {
@@ -254,8 +254,8 @@ Custom formset validation
 A formset has a ``clean`` method similar to the one on a ``Form`` class. This
 is where you define your own validation that works at the formset level::
 
-    >>> from django.forms.formsets import BaseFormSet
-    >>> from django.forms.formsets import formset_factory
+    >>> from django.forms import BaseFormSet
+    >>> from django.forms import formset_factory
     >>> from myapp.forms import ArticleForm
 
     >>> class BaseArticleFormSet(BaseFormSet):
@@ -306,11 +306,11 @@ number of forms should use custom formset validation.
 ~~~~~~~~~~~~~~~~
 
 If ``validate_max=True`` is passed to
-:func:`~django.forms.formsets.formset_factory`, validation will also check
+:func:`~django.forms.formset_factory`, validation will also check
 that the number of forms in the data set, minus those marked for
 deletion, is less than or equal to ``max_num``.
 
-    >>> from django.forms.formsets import formset_factory
+    >>> from django.forms import formset_factory
     >>> from myapp.forms import ArticleForm
     >>> ArticleFormSet = formset_factory(ArticleForm, max_num=1, validate_max=True)
     >>> data = {
@@ -347,7 +347,7 @@ excessive.
 .. versionchanged:: 1.6
 
    The ``validate_max`` parameter was added to
-   :func:`~django.forms.formsets.formset_factory`.
+   :func:`~django.forms.formset_factory`.
 
 ``validate_min``
 ~~~~~~~~~~~~~~~~
@@ -355,11 +355,11 @@ excessive.
 .. versionadded:: 1.7
 
 If ``validate_min=True`` is passed to
-:func:`~django.forms.formsets.formset_factory`, validation will also check
+:func:`~django.forms.formset_factory`, validation will also check
 that the number of forms in the data set, minus those marked for
 deletion, is greater than or equal to ``min_num``.
 
-    >>> from django.forms.formsets import formset_factory
+    >>> from django.forms import formset_factory
     >>> from myapp.forms import ArticleForm
     >>> ArticleFormSet = formset_factory(ArticleForm, min_num=3, validate_min=True)
     >>> data = {
@@ -383,12 +383,12 @@ deletion, is greater than or equal to ``min_num``.
 .. versionchanged:: 1.7
 
    The ``min_num`` and ``validate_min`` parameters were added to
-   :func:`~django.forms.formsets.formset_factory`.
+   :func:`~django.forms.formset_factory`.
 
 Dealing with ordering and deletion of forms
 -------------------------------------------
 
-The :func:`~django.forms.formsets.formset_factory` provides two optional
+The :func:`~django.forms.formset_factory` provides two optional
 parameters ``can_order`` and ``can_delete`` to help with ordering of forms in
 formsets and deletion of forms from a formset.
 
@@ -401,7 +401,7 @@ Default: ``False``
 
 Lets you create a formset with the ability to order::
 
-    >>> from django.forms.formsets import formset_factory
+    >>> from django.forms import formset_factory
     >>> from myapp.forms import ArticleForm
     >>> ArticleFormSet = formset_factory(ArticleForm, can_order=True)
     >>> formset = ArticleFormSet(initial=[
@@ -461,7 +461,7 @@ Default: ``False``
 
 Lets you create a formset with the ability to select forms for deletion::
 
-    >>> from django.forms.formsets import formset_factory
+    >>> from django.forms import formset_factory
     >>> from myapp.forms import ArticleForm
     >>> ArticleFormSet = formset_factory(ArticleForm, can_delete=True)
     >>> formset = ArticleFormSet(initial=[
@@ -507,7 +507,7 @@ delete fields you can access them with ``deleted_forms``::
     >>> [form.cleaned_data for form in formset.deleted_forms]
     [{'DELETE': True, 'pub_date': datetime.date(2008, 5, 10), 'title': u'Article #1'}]
 
-If you are using a :class:`ModelFormSet<django.forms.models.BaseModelFormSet>`,
+If you are using a :class:`ModelFormSet<django.forms.BaseModelFormSet>`,
 model instances for deleted forms will be deleted when you call
 ``formset.save()``.
 
@@ -516,7 +516,7 @@ model instances for deleted forms will be deleted when you call
     If you call ``formset.save(commit=False)``, objects will not be deleted
     automatically.  You'll need to call ``delete()`` on each of the
     :attr:`formset.deleted_objects
-    <django.forms.models.BaseModelFormSet.deleted_objects>` to actually delete
+    <django.forms.BaseModelFormSet.deleted_objects>` to actually delete
     them::
 
         >>> instances = formset.save(commit=False)
@@ -535,8 +535,8 @@ accomplished. The formset base class provides an ``add_fields`` method. You
 can simply override this method to add your own fields or even redefine the
 default fields/attributes of the order and deletion fields::
 
-    >>> from django.forms.formsets import BaseFormSet
-    >>> from django.forms.formsets import formset_factory
+    >>> from django.forms import BaseFormSet
+    >>> from django.forms import formset_factory
     >>> from myapp.forms import ArticleForm
     >>> class BaseArticleFormSet(BaseFormSet):
     ...     def add_fields(self, form, index):
@@ -560,7 +560,7 @@ management form inside the template. Let's look at a sample view:
 
 .. code-block:: python
 
-    from django.forms.formsets import formset_factory
+    from django.forms import formset_factory
     from django.shortcuts import render_to_response
     from myapp.forms import ArticleForm
 
@@ -639,7 +639,7 @@ a look at how this might be accomplished:
 
 .. code-block:: python
 
-    from django.forms.formsets import formset_factory
+    from django.forms import formset_factory
     from django.shortcuts import render_to_response
     from myapp.forms import ArticleForm, BookForm
 

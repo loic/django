@@ -2,7 +2,7 @@
 Model Form Functions
 ====================
 
-.. module:: django.forms.models
+.. module:: django.forms
    :synopsis: Django's functions for building model forms and formsets.
 
 .. function:: modelform_factory(model, form=ModelForm, fields=None, exclude=None, formfield_callback=None, widgets=None, localized_fields=None, labels=None, help_texts=None, error_messages=None)
@@ -52,11 +52,11 @@ Model Form Functions
     Arguments ``model``, ``form``, ``fields``, ``exclude``,
     ``formfield_callback``, ``widgets``, ``localized_fields``, ``labels``,
     ``help_texts``, and ``error_messages`` are all passed through to
-    :func:`~django.forms.models.modelform_factory`.
+    :func:`~django.forms.modelform_factory`.
 
     Arguments ``formset``, ``extra``, ``max_num``, ``can_order``,
     ``can_delete`` and ``validate_max`` are passed through to
-    :func:`~django.forms.formsets.formset_factory`. See :ref:`formsets` for
+    :func:`~django.forms.formset_factory`. See :ref:`formsets` for
     details.
 
     See :ref:`model-formsets` for example usage.
@@ -69,7 +69,7 @@ Model Form Functions
 .. function:: inlineformset_factory(parent_model, model, form=ModelForm, formset=BaseInlineFormSet, fk_name=None, fields=None, exclude=None, extra=3, can_order=False, can_delete=True, max_num=None, formfield_callback=None, widgets=None, validate_max=False, localized_fields=None, labels=None, help_texts=None, error_messages=None)
 
     Returns an ``InlineFormSet`` using :func:`modelformset_factory` with
-    defaults of ``formset=``:class:`~django.forms.models.BaseInlineFormSet`,
+    defaults of ``formset=``:class:`~django.forms.BaseInlineFormSet`,
     ``can_delete=True``, and ``extra=3``.
 
     If your model has more than one :class:`~django.db.models.ForeignKey` to
