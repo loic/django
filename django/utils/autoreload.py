@@ -78,10 +78,7 @@ try:
 
     import resource
     NOFILES_SOFT, NOFILES_HARD = resource.getrlimit(resource.RLIMIT_NOFILE)
-
-    import subprocess
-    command = ["sysctl", "-n", "kern.maxfilesperproc"]
-    NOFILES_KERN = int(subprocess.check_output(command).strip())
+    NOFILES_SPARE = 1024
 except Exception:
     USE_KQUEUE = False
 
@@ -199,32 +196,22 @@ def kqueue_code_changed():
         filenames = set(gen_filenames())
         new_filenames = filenames - old_filenames
 
-        # If new files were added since the last time we went through the loop,
-        # add them to the kqueue.
-        if new_filenames:
 
-            # We must increase the maximum number of open file descriptors
-            # because each kevent uses one file descriptor and resource limits
-            # are too low by default.
-            #
-            # In fact there are two limits:
-            # - kernel limit: `sysctl kern.maxfilesperproc` -> 10240 on OS X.9
-            # - resource limit: `launchctl limit maxfiles` -> 256 on OS X.9
-            #
-            # The latter can be changed with Python's resource module, but it
-            # can never exceed the former. Unfortunately, getrlimit(3) -- used
-            # by both launchctl and the resource module -- reports no "hard
-            # limit", even though the kernel sets one.
-
-            # If project is too large or kernel limits are too tight, use polling.
-            if len(filenames) >= NOFILES_KERN:
+        # Try to raise the original limit by the number of FDs that we need
+        # to be as litte invasive as possible.
+        try:
+            resource.setrlimit(resource.RLIMIT_NOFILE,
+                (NOFILES_SOFT + len(filenames), NOFILES_HARD))
+        # If we can't do that, it could be because the user already
+        # set his limit to the maximum. In that case we check that we would
+        # leave enough room for the application.
+        except ValueError:
+            if len(filenames) + NOFILES_SPARE > NOFILES_SOFT:
                 return code_changed()
 
-            # Add the number of file descriptors we're going to use to the current
-            # resource limit, while staying within the kernel limit.
-            nofiles_target = min(len(filenames) + NOFILES_SOFT, NOFILES_KERN)
-            resource.setrlimit(resource.RLIMIT_NOFILE, (nofiles_target, NOFILES_HARD))
-
+        # If new files were added since the last time we went through the loop,
+        # add them to the kqueue.
+        if new_filenames :
             new_descriptors = set(open(filename) for filename in new_filenames)
             descriptors |= new_descriptors
 
