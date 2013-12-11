@@ -1,3 +1,5 @@
+# coding: utf-8
+
 from __future__ import unicode_literals
 
 import os
@@ -11,6 +13,7 @@ from django.template import Context, RequestContext, TemplateDoesNotExist
 from django.views.debug import technical_500_response, SafeExceptionReporterFilter
 from django.views.decorators.debug import (sensitive_post_parameters,
                                            sensitive_variables)
+from django.views.generic import RedirectView
 from django.utils._os import upath
 from django.utils.log import getLogger
 
@@ -334,3 +337,8 @@ def multivalue_dict_key_error(request):
         exc_info = sys.exc_info()
         send_log(request, exc_info)
         return technical_500_response(request, *exc_info)
+
+
+class DeclaredRedirectView(RedirectView):
+    url='/中文/target/'
+    permanent=True

@@ -36,3 +36,11 @@ class URLHandling(TestCase):
         """
         response = self.client.get('/permanent_nonascii_redirect/')
         self.assertRedirects(response, self.redirect_target, status_code=301)
+
+    def test_cbv_with_implicit_asview(self):
+        """
+        Tests that a non-ASCII argument to HttpPermanentRedirect is handled
+        properly.
+        """
+        response = self.client.get('/redirect_with_implicit_asview/')
+        self.assertRedirects(response, self.redirect_target, status_code=301)

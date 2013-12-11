@@ -5,6 +5,7 @@ from django.conf.urls import patterns, url
 from django.views.generic import RedirectView
 
 from .models import Article, DateArticle
+from .views import DeclaredRedirectView
 
 
 date_based_info_dict = {
@@ -41,6 +42,7 @@ urlpatterns += patterns('',
         url='/中文/target/', permanent=False)),
     ('^permanent_nonascii_redirect/$', RedirectView.as_view(
         url='/中文/target/', permanent=True)),
+    ('redirect_with_implicit_asview/$', DeclaredRedirectView),
 )
 
 urlpatterns += patterns('view_tests.views',

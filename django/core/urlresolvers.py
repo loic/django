@@ -189,7 +189,10 @@ class RegexURLPattern(LocaleRegexProvider):
         # which represents the path to a module and a view function name, or a
         # callable object (view).
         if callable(callback):
-            self._callback = callback
+            if hasattr(callback, 'as_view'):
+                self._callback = callback.as_view()
+            else:
+                self._callback = callback
         else:
             self._callback = None
             self._callback_str = callback
