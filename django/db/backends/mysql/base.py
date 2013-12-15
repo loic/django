@@ -13,20 +13,33 @@ import warnings
 try:
     import MySQLdb as Database
 except ImportError as e:
-    from django.core.exceptions import ImproperlyConfigured
-    raise ImproperlyConfigured("Error loading MySQLdb module: %s" % e)
+    USE_MYSQLDB = False
+else:
+    USE_MYSQLDB = True
+    from MySQLdb.converters import conversions, Thing2Literal
+    from MySQLdb.constants import FIELD_TYPE, CLIENT
 
-# We want version (1, 2, 1, 'final', 2) or later. We can't just use
-# lexicographic ordering in this check because then (1, 2, 1, 'gamma')
-# inadvertently passes the version test.
-version = Database.version_info
-if (version < (1, 2, 1) or (version[:3] == (1, 2, 1) and
-        (len(version) < 5 or version[3] != 'final' or version[4] < 2))):
-    from django.core.exceptions import ImproperlyConfigured
-    raise ImproperlyConfigured("MySQLdb-1.2.1p2 or newer is required; you have %s" % Database.__version__)
+    # We want version (1, 2, 1, 'final', 2) or later. We can't just use
+    # lexicographic ordering in this check because then (1, 2, 1, 'gamma')
+    # inadvertently passes the version test.
+    version = Database.version_info
+    if (version < (1, 2, 1) or (version[:3] == (1, 2, 1) and
+            (len(version) < 5 or version[3] != 'final' or version[4] < 2))):
+        from django.core.exceptions import ImproperlyConfigured
+        raise ImproperlyConfigured("MySQLdb-1.2.1p2 or newer is required; you have %s" % Database.__version__)
 
-from MySQLdb.converters import conversions, Thing2Literal
-from MySQLdb.constants import FIELD_TYPE, CLIENT
+try:
+    import pymysql as Database
+except ImportError:
+    USE_PYMYSQL = False
+else:
+    USE_PYMYSQL = True
+    from pymysql.converters import conversions, Thing2Literal
+    from pymysql.constants import FIELD_TYPE, CLIENT
+
+if not USE_MYSQLDB and not USE_PYMYSQL:
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured("Couldn't find either MySQLdb or PyMySQL modules.")
 
 try:
     import pytz
@@ -305,8 +318,7 @@ class DatabaseOperations(BaseDatabaseOperations):
 
     def quote_parameter(self, value):
         # Inner import to allow module to fail to load gracefully
-        import MySQLdb.converters
-        return MySQLdb.escape(value, MySQLdb.converters.conversions)
+        return Database.escape(value, Database.converters.conversions)
 
     def random_function_sql(self):
         return 'RAND()'
