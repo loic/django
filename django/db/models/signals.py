@@ -50,12 +50,21 @@ class ModelSignal(Signal):
             receiver, sender=sender, weak=weak, dispatch_uid=dispatch_uid
         )
 
+
+class SaveModelSignal(ModelSignal):
+    def _send(self, sender, named, robust=False):
+        if not named['raw']:
+            meta = sender._meta
+            for parent, field in meta.parents.items():
+                self._send(parent, named, robust)
+        super(SaveModelSignal, self)._send(sender, named, robust)
+
+
 pre_init = ModelSignal(providing_args=["instance", "args", "kwargs"], use_caching=True)
 post_init = ModelSignal(providing_args=["instance"], use_caching=True)
 
-pre_save = ModelSignal(providing_args=["instance", "raw", "using", "update_fields"],
-                       use_caching=True)
-post_save = ModelSignal(providing_args=["instance", "raw", "created", "using", "update_fields"], use_caching=True)
+pre_save = SaveModelSignal(providing_args=["instance", "raw", "using", "update_fields"], use_caching=True)
+post_save = SaveModelSignal(providing_args=["instance", "raw", "created", "using", "update_fields"], use_caching=True)
 
 pre_delete = ModelSignal(providing_args=["instance", "using"], use_caching=True)
 post_delete = ModelSignal(providing_args=["instance", "using"], use_caching=True)

@@ -159,6 +159,24 @@ class Signal(object):
     def has_listeners(self, sender=None):
         return bool(self._live_receivers(sender))
 
+    def _send(self, sender, named, robust=False):
+        responses = []
+        if not self.receivers or self.sender_receivers_cache.get(sender) is NO_RECEIVERS:
+            return responses
+
+        # Call each receiver with whatever arguments it can accept.
+        # Return a list of tuple pairs [(receiver, response), ... ].
+        for receiver in self._live_receivers(sender):
+            try:
+                response = receiver(signal=self, sender=sender, **named)
+            except Exception as err:
+                if not robust:
+                    raise
+                responses.append((receiver, err))
+            else:
+                responses.append((receiver, response))
+        return responses
+
     def send(self, sender, **named):
         """
         Send signal from sender to all connected receivers.
@@ -177,14 +195,7 @@ class Signal(object):
 
         Returns a list of tuple pairs [(receiver, response), ... ].
         """
-        responses = []
-        if not self.receivers or self.sender_receivers_cache.get(sender) is NO_RECEIVERS:
-            return responses
-
-        for receiver in self._live_receivers(sender):
-            response = receiver(signal=self, sender=sender, **named)
-            responses.append((receiver, response))
-        return responses
+        return self._send(sender, named, robust=False)
 
     def send_robust(self, sender, **named):
         """
@@ -209,20 +220,7 @@ class Signal(object):
         Exception), the error instance is returned as the result for that
         receiver.
         """
-        responses = []
-        if not self.receivers or self.sender_receivers_cache.get(sender) is NO_RECEIVERS:
-            return responses
-
-        # Call each receiver with whatever arguments it can accept.
-        # Return a list of tuple pairs [(receiver, response), ... ].
-        for receiver in self._live_receivers(sender):
-            try:
-                response = receiver(signal=self, sender=sender, **named)
-            except Exception as err:
-                responses.append((receiver, err))
-            else:
-                responses.append((receiver, response))
-        return responses
+        return self._send(sender, named, robust=True)
 
     def _live_receivers(self, sender):
         """

@@ -6,7 +6,7 @@ from django.dispatch import receiver
 from django.test import TestCase
 from django.utils import six
 
-from .models import Author, Book, Car, Person
+from .models import Author, Book, Car, Person, Adult
 
 
 class BaseSignalTest(TestCase):
@@ -85,6 +85,72 @@ class SignalTests(BaseSignalTest):
             self.assertEqual(data, [
                 (p2, False),
                 (p2, True, False),
+            ])
+        finally:
+            signals.pre_save.disconnect(pre_save_handler)
+            signals.post_save.disconnect(post_save_handler)
+
+    def test_mti_save_signals(self):
+        data = []
+
+        def pre_save_handler(signal, sender, instance, **kwargs):
+            data.append(
+                (sender.__name__, instance, kwargs.get("raw", False))
+            )
+
+        def post_save_handler(signal, sender, instance, **kwargs):
+            data.append(
+                (sender.__name__, instance, kwargs.get("created"), kwargs.get("raw", False))
+            )
+
+        signals.pre_save.connect(pre_save_handler, weak=False)
+        signals.post_save.connect(post_save_handler, weak=False)
+        try:
+            p1 = Adult.objects.create(first_name="John", last_name="Smith")
+
+            self.assertEqual(data, [
+                ('Person', p1, False),
+                ('Adult', p1, False),
+                ('Person', p1, True, False),
+                ('Adult', p1, True, False),
+            ])
+            data[:] = []
+
+            p1.first_name = "Tom"
+            p1.save()
+            self.assertEqual(data, [
+                ('Person', p1, False),
+                ('Adult', p1, False),
+                ('Person', p1, False, False),
+                ('Adult', p1, False, False),
+            ])
+            data[:] = []
+
+            # Calling an internal method purely so that we can trigger a "raw" save.
+            p1.save_base(raw=True)
+            self.assertEqual(data, [
+                ('Adult', p1, True),
+                ('Adult', p1, False, True),
+            ])
+            data[:] = []
+
+            p2 = Adult(first_name="James", last_name="Jones")
+            p2.id = 99999
+            p2.save()
+            self.assertEqual(data, [
+                ('Person', p2, False),
+                ('Adult', p2, False),
+                ('Person', p2, True, False),
+                ('Adult', p2, True, False),
+            ])
+            data[:] = []
+            p2.id = 99998
+            p2.save()
+            self.assertEqual(data, [
+                ('Person', p2, False),
+                ('Adult', p2, False),
+                ('Person', p2, True, False),
+                ('Adult', p2, True, False),
             ])
         finally:
             signals.pre_save.disconnect(pre_save_handler)

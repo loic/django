@@ -16,6 +16,10 @@ class Person(models.Model):
         return "%s %s" % (self.first_name, self.last_name)
 
 
+class Adult(Person):
+    occupation = models.CharField(max_length=20)
+
+
 @python_2_unicode_compatible
 class Car(models.Model):
     make = models.CharField(max_length=20)
