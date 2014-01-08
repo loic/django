@@ -47,7 +47,7 @@ class Signal(object):
         # .disconnect() is called and populated on send().
         self.sender_receivers_cache = weakref.WeakKeyDictionary() if use_caching else {}
 
-    def connect(self, receiver, sender=None, weak=True, dispatch_uid=None):
+    def connect(self, receiver, sender=None, weak=True, dispatch_uid=None, dispatch_args=None):
         """
         Connect receiver to sender for signal.
 
@@ -114,11 +114,11 @@ class Signal(object):
             receiver = saferef.safeRef(receiver, onDelete=self._remove_receiver)
 
         with self.lock:
-            for r_key, _ in self.receivers:
-                if r_key == lookup_key:
+            for key, _, _ in self.receivers:
+                if key == lookup_key:
                     break
             else:
-                self.receivers.append((lookup_key, receiver))
+                self.receivers.append((lookup_key, receiver, dispatch_args))
             self.sender_receivers_cache.clear()
 
     def disconnect(self, receiver=None, sender=None, weak=True, dispatch_uid=None):
@@ -150,8 +150,7 @@ class Signal(object):
 
         with self.lock:
             for index in xrange(len(self.receivers)):
-                (r_key, _) = self.receivers[index]
-                if r_key == lookup_key:
+                if self.receivers[index][0] == lookup_key:
                     del self.receivers[index]
                     break
             self.sender_receivers_cache.clear()
@@ -240,7 +239,7 @@ class Signal(object):
             with self.lock:
                 senderkey = _make_id(sender)
                 receivers = []
-                for (receiverkey, r_senderkey), receiver in self.receivers:
+                for (receiverkey, r_senderkey), receiver, _ in self.receivers:
                     if r_senderkey == NONE_ID or r_senderkey == senderkey:
                         receivers.append(receiver)
                 if self.use_caching:
@@ -267,15 +266,15 @@ class Signal(object):
 
         with self.lock:
             to_remove = []
-            for key, connected_receiver in self.receivers:
+            for key, connected_receiver, _ in self.receivers:
                 if connected_receiver == receiver:
                     to_remove.append(key)
             for key in to_remove:
                 last_idx = len(self.receivers) - 1
                 # enumerate in reverse order so that indexes are valid even
                 # after we delete some items
-                for idx, (r_key, _) in enumerate(reversed(self.receivers)):
-                    if r_key == key:
+                for idx, current_receiver in enumerate(reversed(self.receivers)):
+                    if current_receiver[0] == key:
                         del self.receivers[last_idx - idx]
             self.sender_receivers_cache.clear()
 

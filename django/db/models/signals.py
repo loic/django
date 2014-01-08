@@ -1,3 +1,5 @@
+import warnings
+
 from django.apps import apps
 from django.dispatch import Signal
 from django.utils import six
@@ -52,6 +54,25 @@ class ModelSignal(Signal):
 
 
 class SaveModelSignal(ModelSignal):
+    propagate = None
+
+    def __init__(self, *args, **kwargs):
+        self.propagate = {}
+        super(SaveModelSignal, self).__init__(*args, **kwargs)
+
+    def connect(self, receiver, sender=None, weak=True, dispatch_uid=None, propagate=None):
+        if propagate is None:
+            warnings.warn(
+                "In Django 1.9, the `propagate` kwarg of `pre_save.connect()` and "
+                "`post_save.connect()` will default to True. To preserve current "
+                "behavior, you must explicitly set `propagate` to False.",
+                PendingDeprecationWarning
+            )
+
+        super(ModelSignal, self).connect(
+            receiver, sender=sender, weak=weak, dispatch_uid=dispatch_uid
+        )
+
     def _send(self, sender, named, robust=False):
         if not named['raw']:
             meta = sender._meta
