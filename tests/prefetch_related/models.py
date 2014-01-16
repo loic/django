@@ -170,6 +170,7 @@ class Comment(models.Model):
 class House(models.Model):
     address = models.CharField(max_length=255)
     owner = models.ForeignKey('Person', null=True)
+    main_room = models.OneToOneField('Room', related_name='main_room_of', null=True)
 
     class Meta:
         ordering = ['id']
