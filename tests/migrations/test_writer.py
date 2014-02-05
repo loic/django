@@ -8,9 +8,10 @@ import os
 from django.core.validators import RegexValidator, EmailValidator
 from django.db import models, migrations
 from django.db.migrations.writer import MigrationWriter, SettingsReference
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.conf import settings
 from django.utils import six
+from django.utils import timezone
 from django.utils.deconstruct import deconstructible
 from django.utils.translation import ugettext_lazy as _
 
@@ -78,6 +79,8 @@ class WriterTests(TestCase):
         self.assertSerializedEqual(datetime.datetime.today)
         self.assertSerializedEqual(datetime.date.today())
         self.assertSerializedEqual(datetime.date.today)
+        with override_settings(USE_TZ=True):
+            self.assertSerializedEqual(timezone.now())
         # Classes
         validator = RegexValidator(message="hello")
         string, imports = MigrationWriter.serialize(validator)
