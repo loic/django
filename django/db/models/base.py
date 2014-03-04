@@ -1000,14 +1000,14 @@ class Model(six.with_metaclass(ModelBase)):
         try:
             self.clean_fields(exclude=exclude)
         except ValidationError as e:
-            errors = e.update_error_dict(errors)
+            e.update_error_dict(errors)
 
         # Form.clean() is run even if other validation fails, so do the
         # same with Model.clean() for consistency.
         try:
             self.clean()
         except ValidationError as e:
-            errors = e.update_error_dict(errors)
+            e.update_error_dict(errors)
 
         # Run unique checks, but only for fields that passed validation.
         if validate_unique:
@@ -1017,7 +1017,7 @@ class Model(six.with_metaclass(ModelBase)):
             try:
                 self.validate_unique(exclude=exclude)
             except ValidationError as e:
-                errors = e.update_error_dict(errors)
+                e.update_error_dict(errors)
 
         if errors:
             raise ValidationError(errors)

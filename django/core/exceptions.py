@@ -3,6 +3,7 @@ Global Django exception and warning classes.
 """
 from functools import reduce
 import operator
+import warnings
 
 from django.utils import six
 from django.utils.encoding import force_text
@@ -123,6 +124,12 @@ class ValidationError(Exception):
 
     @property
     def message_dict(self):
+        warnings.warn(
+            "ValidationError.message_dict is deprecated and will be removed "
+            "in Django 2.0, you can get the mapping of fields to their rendered "
+            "error messages by iterating over the ValidationError instance directly.",
+            PendingDeprecationWarning, stacklevel=2)
+
         # Trigger an AttributeError if this ValidationError
         # doesn't have an error_dict.
         getattr(self, 'error_dict')
@@ -132,18 +139,28 @@ class ValidationError(Exception):
     @property
     def messages(self):
         if hasattr(self, 'error_dict'):
+            warnings.warn(
+                "ValidationError.messages will no longer flatten error_dict "
+                "automatically as of Django 2.0. It will return a list of"
+                "(field, error_messages) mapping.",
+                PendingDeprecationWarning, stacklevel=2)
             return reduce(operator.add, dict(self).values())
         return list(self)
 
     def update_error_dict(self, error_dict):
+        """
+        This method extends the dict passed as parameter with the
+        errors from this ValidationError instance; it does not in
+        any case modify this instance's internal error_dict.
+        """
         if hasattr(self, 'error_dict'):
-            if error_dict:
-                for field, errors in self.error_dict.items():
-                    error_dict.setdefault(field, []).extend(errors)
-            else:
-                error_dict = self.error_dict
+            errors = self.error_dict
         else:
-            error_dict[NON_FIELD_ERRORS] = self.error_list
+            errors = {NON_FIELD_ERRORS: self.error_list}
+
+        for field, error_list in errors.items():
+            error_dict.setdefault(field, []).extend(error_list)
+
         return error_dict
 
     def __iter__(self):

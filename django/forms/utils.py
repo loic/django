@@ -89,7 +89,7 @@ class ErrorList(UserList, list):
     def as_json(self, escape_html=False):
         errors = []
         for error in ValidationError(self.data).error_list:
-            message = list(error)[0]
+            message = error.messages[0]
             errors.append({
                 'message': escape(message) if escape_html else message,
                 'code': error.code or '',
@@ -125,7 +125,7 @@ class ErrorList(UserList, list):
     def __getitem__(self, i):
         error = self.data[i]
         if isinstance(error, ValidationError):
-            return list(error)[0]
+            return error.messages[0]
         return force_text(error)
 
 
