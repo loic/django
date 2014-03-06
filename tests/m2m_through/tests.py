@@ -236,7 +236,7 @@ class M2mThroughTests(TestCase):
         )
 
         chris = PersonSelfRefM2M.objects.create(name="Chris")
-        Friendship.objects.create(first=tony, second=chris, date_friended=datetime.now())
+        Friendship.objects.create(first=tony, second=chris, date_friended=datetime.now(), reason='because')
 
         # Tony should now show that Chris is his friend.
         self.assertQuerysetEqual(
@@ -245,6 +245,14 @@ class M2mThroughTests(TestCase):
             ],
             attrgetter("name")
         )
+
+        self.assertQuerysetEqual(
+            tony.friends.filter(rel_from_set__reason='because'), [
+                'Chris'
+            ],
+            attrgetter("name")
+        )
+
         # But we haven't established that Chris is Tony's Friend.
         self.assertQuerysetEqual(
             chris.friends.all(),

@@ -77,6 +77,7 @@ class Friendship(models.Model):
     first = models.ForeignKey(PersonSelfRefM2M, related_name="rel_from_set")
     second = models.ForeignKey(PersonSelfRefM2M, related_name="rel_to_set")
     date_friended = models.DateTimeField()
+    reason = models.CharField(max_length=50)
 
 
 # Custom through link fields
