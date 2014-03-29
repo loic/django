@@ -84,15 +84,15 @@ class WriterTests(TestCase):
         # Classes
         validator = RegexValidator(message="hello")
         string, imports = MigrationWriter.serialize(validator)
-        self.assertEqual(string, "django.core.validators.RegexValidator(message=%s)" % repr("hello"))
+        self.assertEqual(string, "django.core.validators.RegexValidator(message=%s)" % "six.text_type('hello')")
         self.serialize_round_trip(validator)
         validator = EmailValidator(message="hello")  # Test with a subclass.
         string, imports = MigrationWriter.serialize(validator)
-        self.assertEqual(string, "django.core.validators.EmailValidator(message=%s)" % repr("hello"))
+        self.assertEqual(string, "django.core.validators.EmailValidator(message=%s)" % "six.text_type('hello')")
         self.serialize_round_trip(validator)
         validator = deconstructible(path="custom.EmailValidator")(EmailValidator)(message="hello")
         string, imports = MigrationWriter.serialize(validator)
-        self.assertEqual(string, "custom.EmailValidator(message=%s)" % repr("hello"))
+        self.assertEqual(string, "custom.EmailValidator(message=%s)" % "six.text_type('hello')")
         # Django fields
         self.assertSerializedFieldEqual(models.CharField(max_length=255))
         self.assertSerializedFieldEqual(models.TextField(null=True, blank=True))
