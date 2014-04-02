@@ -231,6 +231,9 @@ class MigrationWriter(object):
         # Decimal
         elif isinstance(value, decimal.Decimal):
             return repr(value), set(["from decimal import Decimal"])
+        # Django models
+        elif isinstance(value, models.Model):
+            return "%s.%s" % (value._meta.app_label, value._meta.object_name)
         # Django fields
         elif isinstance(value, models.Field):
             attr_name, path, args, kwargs = value.deconstruct()
