@@ -1,7 +1,7 @@
 from __future__ import unicode_literals
 
 from operator import attrgetter
-
+from django.apps.registry import Apps
 from django.core.exceptions import FieldError
 from django.db import connection
 from django.test import TestCase
@@ -11,7 +11,15 @@ from django.utils import six
 from .models import (
     Chef, CommonInfo, ItalianRestaurant, ParkingLot, Place, Post,
     Restaurant, Student, Supplier, Worker, MixinModel,
-    Title, Base, SubBase)
+    Base, SubBase)
+
+
+clashing_apps = Apps()
+clashing_apps.ready = False
+clashing_apps.populate([
+    'model_inheritance.clashing_app1',
+    'model_inheritance.clashing_app2',
+])
 
 
 class ModelInheritanceTests(TestCase):
@@ -329,7 +337,7 @@ class ModelInheritanceTests(TestCase):
 
     def test_custompk_m2m(self):
         b = Base.objects.create()
-        b.titles.add(Title.objects.create(title="foof"))
+        b.titles.add(Post.objects.create(title="foof"))
         s = SubBase.objects.create(sub_id=b.id)
         b = Base.objects.get(pk=s.id)
         self.assertNotEqual(b.pk, s.pk)
@@ -339,3 +347,17 @@ class ModelInheritanceTests(TestCase):
         # accidentally found).
         self.assertQuerysetEqual(
             s.titles.all(), [])
+
+    def test_inheritance_related_name(self):
+        Title = clashing_apps.get_model('clashing_app1.Title')
+        Copy1 = clashing_apps.get_model('clashing_app1.Copy')
+        Copy2 = clashing_apps.get_model('clashing_app2.Copy')
+
+        self.assertTrue(hasattr(Title, 'attached_clashing_app1_copy_set'))
+        self.assertIs(Title.attached_clashing_app1_copy_set.related.model, Copy1)
+        self.assertTrue(hasattr(Title, 'attached_clashing_app2_copy_set'))
+        self.assertIs(Title.attached_clashing_app2_copy_set.related.model, Copy2)
+
+        # The Tile model shoulnd't have an attribute called
+        # 'attached_%(app_label)s_%(class)s_set'.
+        self.assertFalse(hasattr(Title, 'attached_%(app_label)s_%(class)s_set'))

@@ -89,11 +89,10 @@ class ModelBase(type):
             meta = attr_meta
         base_meta = getattr(new_class, '_meta', None)
 
-        # Look for an application configuration to attach the model to.
-        app_config = apps.get_containing_app_config(module)
-
         if getattr(meta, 'app_label', None) is None:
-
+            # Look for an application configuration to attach the model to.
+            local_apps = getattr(meta, 'apps', apps)
+            app_config = local_apps.get_containing_app_config(module)
             if app_config is None:
                 # If the model is imported before the configuration for its
                 # application is created (#21719), or isn't in an installed

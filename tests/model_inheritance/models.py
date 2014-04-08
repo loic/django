@@ -141,35 +141,6 @@ class ParkingLot(Place):
         return "%s the parking lot" % self.name
 
 
-#
-# Abstract base classes with related models where the sub-class has the
-# same name in a different app and inherits from the same abstract base
-# class.
-# NOTE: The actual API tests for the following classes are in
-#       model_inheritance_same_model_name/models.py - They are defined
-#       here in order to have the name conflict between apps
-#
-
-class Title(models.Model):
-    title = models.CharField(max_length=50)
-
-
-class NamedURL(models.Model):
-    title = models.ForeignKey(Title, related_name='attached_%(app_label)s_%(class)s_set')
-    url = models.URLField()
-
-    class Meta:
-        abstract = True
-
-
-@python_2_unicode_compatible
-class Copy(NamedURL):
-    content = models.TextField()
-
-    def __str__(self):
-        return self.content
-
-
 class Mixin(object):
     def __init__(self):
         self.other_attr = 1
@@ -181,7 +152,7 @@ class MixinModel(models.Model, Mixin):
 
 
 class Base(models.Model):
-    titles = models.ManyToManyField(Title)
+    titles = models.ManyToManyField(Post)
 
 
 class SubBase(Base):
