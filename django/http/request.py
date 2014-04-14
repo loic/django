@@ -42,6 +42,7 @@ class HttpRequest(object):
     # The encoding used in GET/POST dicts. None means use default setting.
     _encoding = None
     _upload_handlers = []
+    _open_files = None
 
     def __init__(self):
         # WARNING: The `WSGIRequest` subclass doesn't call `super`.
@@ -194,6 +195,12 @@ class HttpRequest(object):
             warning="You cannot alter upload handlers after the upload has been processed."
         )
         parser = MultiPartParser(META, post_data, self.upload_handlers, self.encoding)
+
+        # Backup all files we may have opened.
+        if self._open_files is None:
+            self._open_files = []
+        self._open_files.extend(parser._open_files)
+
         return parser.parse()
 
     @property

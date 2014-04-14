@@ -292,6 +292,10 @@ class HttpResponseBase(six.Iterator):
                 closable.close()
             except Exception:
                 pass
+        # FIXME: This will only work with the test Client, since
+        # that's the only response with a hooked request.
+        for file in self.wsgi_request._open_files:
+            file.close()
         signals.request_finished.send(sender=self._handler_class)
 
     def write(self, content):

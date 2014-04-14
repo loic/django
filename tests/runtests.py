@@ -19,6 +19,15 @@ from django.utils import six
 warnings.simplefilter("default", RemovedInDjango19Warning)
 warnings.simplefilter("default", RemovedInDjango20Warning)
 
+
+import traceback
+showwarning = warnings.showwarning
+def showwarning_with_traceback(*args, **kwargs):
+    traceback.print_stack()
+    return showwarning(*args, **kwargs)
+warnings.showwarning = showwarning_with_traceback
+
+
 CONTRIB_MODULE_PATH = 'django.contrib'
 
 TEST_TEMPLATE_DIR = 'templates'

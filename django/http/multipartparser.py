@@ -100,6 +100,7 @@ class MultiPartParser(object):
         self._encoding = encoding or settings.DEFAULT_CHARSET
         self._content_length = content_length
         self._upload_handlers = upload_handlers
+        self._open_files = []
 
     def parse(self):
         """
@@ -201,6 +202,9 @@ class MultiPartParser(object):
                                                  charset, content_type_extra)
                             except StopFutureHandlers:
                                 break
+                            finally:
+                                if hasattr(handler, 'file'):
+                                    self._open_files.append(handler.file)
 
                         for chunk in field_stream:
                             if transfer_encoding == 'base64':
