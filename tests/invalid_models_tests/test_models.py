@@ -300,14 +300,6 @@ class ShadowingFieldsTests(IsolatedModelsTestCase):
         errors = Child.check()
         expected = [
             Error(
-                ("The field 'id' from parent model "
-                 "'invalid_models_tests.mother' clashes with the field 'id' "
-                 "from parent model 'invalid_models_tests.father'."),
-                hint=None,
-                obj=Child,
-                id='models.E005',
-            ),
-            Error(
                 ("The field 'clash' from parent model "
                  "'invalid_models_tests.mother' clashes with the field 'clash' "
                  "from parent model 'invalid_models_tests.father'."),

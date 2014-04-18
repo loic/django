@@ -186,3 +186,15 @@ class Base(models.Model):
 
 class SubBase(Base):
     sub_id = models.IntegerField(primary_key=True)
+
+
+class Foo(models.Model):
+    pass
+
+
+class Bar(models.Model):
+    pass
+
+
+class Baz(Foo, Bar):
+    pass
