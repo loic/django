@@ -383,19 +383,19 @@ class ManagementUtility(object):
             pass  # Ignore any option errors at this point.
 
         try:
+            subcommand = self.argv[1]
+        except IndexError:
+            subcommand = 'help'  # Display help if no arguments were given.
+
+        try:
             settings.INSTALLED_APPS
         except ImproperlyConfigured:
             # Some commands are supposed to work without configured settings
             pass
         else:
-            django.setup()
+            django.setup(load_test_models=(subcommand == 'test'))
 
         self.autocomplete()
-
-        try:
-            subcommand = self.argv[1]
-        except IndexError:
-            subcommand = 'help'  # Display help if no arguments were given.
 
         if subcommand == 'help':
             if len(args) <= 2:

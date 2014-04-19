@@ -55,7 +55,7 @@ class Apps(object):
         if installed_apps is not None:
             self.populate(installed_apps)
 
-    def populate(self, installed_apps=None):
+    def populate(self, installed_apps=None, load_test_models=False):
         """
         Loads application configurations and models.
 
@@ -103,7 +103,7 @@ class Apps(object):
             # Load models.
             for app_config in self.app_configs.values():
                 all_models = self.all_models[app_config.label]
-                app_config.import_models(all_models)
+                app_config.import_models(all_models, load_test_models)
 
             self.clear_cache()
             self.ready = True

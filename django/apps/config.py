@@ -7,6 +7,7 @@ from django.utils._os import upath
 
 
 MODELS_MODULE_NAME = 'models'
+TEST_MODELS_MODULE_NAME = 'tests'
 
 
 class AppConfig(object):
@@ -178,7 +179,7 @@ class AppConfig(object):
                 continue
             yield model
 
-    def import_models(self, all_models):
+    def import_models(self, all_models, load_test_models=False):
         # Dictionary of models for this app, primarily maintained in the
         # 'all_models' attribute of the Apps this AppConfig is attached to.
         # Injected as a parameter because it gets populated when models are
@@ -188,6 +189,12 @@ class AppConfig(object):
         if module_has_submodule(self.module, MODELS_MODULE_NAME):
             models_module_name = '%s.%s' % (self.name, MODELS_MODULE_NAME)
             self.models_module = import_module(models_module_name)
+
+        if load_test_models and module_has_submodule(self.module, TEST_MODELS_MODULE_NAME):
+            models_module_name = '%s.%s' % (self.name, TEST_MODELS_MODULE_NAME)
+            models_module = import_module(models_module_name)
+            if self.models_module is None:
+                self.models_module = models_module
 
     def ready(self):
         """

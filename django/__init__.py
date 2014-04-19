@@ -8,7 +8,7 @@ def get_version(*args, **kwargs):
     return get_version(*args, **kwargs)
 
 
-def setup():
+def setup(load_test_models=False):
     """
     Configure the settings (this happens as a side effect of accessing the
     first setting), configure logging and populate the app registry.
@@ -18,4 +18,4 @@ def setup():
     from django.utils.log import configure_logging
 
     configure_logging(settings.LOGGING_CONFIG, settings.LOGGING)
-    apps.populate(settings.INSTALLED_APPS)
+    apps.populate(settings.INSTALLED_APPS, load_test_models)
