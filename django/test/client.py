@@ -10,14 +10,17 @@ from io import BytesIO
 
 from django.apps import apps
 from django.conf import settings
+from django.conf.urls import url
 from django.core.handlers.base import BaseHandler
 from django.core.handlers.wsgi import WSGIRequest
 from django.core.signals import (request_started, request_finished,
     got_request_exception)
+from django.core.urlresolvers import reverse
 from django.db import close_old_connections
-from django.http import SimpleCookie, QueryDict
+from django.http import HttpResponse, QueryDict, SimpleCookie
 from django.template import TemplateDoesNotExist
 from django.test import signals
+from django.test.utils import override_settings
 from django.utils.functional import curry
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlencode
@@ -25,6 +28,7 @@ from django.utils.itercompat import is_iterable
 from django.utils import six
 from django.utils.six.moves.urllib.parse import unquote, urlparse, urlsplit
 from django.test.utils import ContextList
+from django.views.decorators.csrf import csrf_exempt
 
 __all__ = ('Client', 'RequestFactory', 'encode_file', 'encode_multipart')
 
@@ -355,7 +359,55 @@ class RequestFactory(object):
         return self.request(**r)
 
 
-class Client(RequestFactory):
+class ClientAuthMixin(object):
+    def login(self, **credentials):
+        """
+        Sets the Factory to appear as if it has successfully logged into a site.
+
+        Returns True if login is possible; False if the provided credentials
+        are incorrect, or the user is inactive, or if the sessions framework is
+        not available.
+        """
+        with override_settings(ROOT_URLCONF=__name__):
+            response = self.post(reverse('test_client_login'), data=credentials)
+            return response.wsgi_request.user.is_authenticated()
+
+    @staticmethod
+    @csrf_exempt
+    def login_view(request):
+        from django.contrib.auth import authenticate, login
+
+        user = authenticate(**dict(request.POST.items()))
+        if user and user.is_active:
+            login(request, user)
+            return HttpResponse('Logged in')
+        return HttpResponse('Log in failed')
+
+    def logout(self):
+        """
+        Removes the authenticated user's cookies and session object.
+
+        Causes the authenticated user to be logged out.
+        """
+        with override_settings(ROOT_URLCONF=__name__):
+            self.post(reverse('test_client_logout'))
+
+    @staticmethod
+    @csrf_exempt
+    def logout_view(request):
+        from django.contrib.auth import logout
+
+        logout(request)
+        return HttpResponse('Logged out')
+
+
+urlpatterns = [
+    url('^_test_client_login/$', ClientAuthMixin.login_view, name='test_client_login'),
+    url('^_test_client_logout/$', ClientAuthMixin.logout_view, name='test_client_logout'),
+]
+
+
+class Client(ClientAuthMixin, RequestFactory):
     """
     A class that can act as a client for testing purposes.
 
@@ -538,70 +590,6 @@ class Client(RequestFactory):
         if follow:
             response = self._handle_redirects(response, **extra)
         return response
-
-    def login(self, **credentials):
-        """
-        Sets the Factory to appear as if it has successfully logged into a site.
-
-        Returns True if login is possible; False if the provided credentials
-        are incorrect, or the user is inactive, or if the sessions framework is
-        not available.
-        """
-        from django.contrib.auth import authenticate, login
-        user = authenticate(**credentials)
-        if (user and user.is_active and
-                apps.is_installed('django.contrib.sessions')):
-            engine = import_module(settings.SESSION_ENGINE)
-
-            # Create a fake request that goes through request middleware
-            request = self.request().wsgi_request
-
-            if self.session:
-                request.session = self.session
-            else:
-                request.session = engine.SessionStore()
-            login(request, user)
-
-            # Save the session values.
-            request.session.save()
-
-            # Set the cookie to represent the session.
-            session_cookie = settings.SESSION_COOKIE_NAME
-            self.cookies[session_cookie] = request.session.session_key
-            cookie_data = {
-                'max-age': None,
-                'path': '/',
-                'domain': settings.SESSION_COOKIE_DOMAIN,
-                'secure': settings.SESSION_COOKIE_SECURE or None,
-                'expires': None,
-            }
-            self.cookies[session_cookie].update(cookie_data)
-
-            return True
-        else:
-            return False
-
-    def logout(self):
-        """
-        Removes the authenticated user's cookies and session object.
-
-        Causes the authenticated user to be logged out.
-        """
-        from django.contrib.auth import get_user_model, logout
-        # Create a fake request that goes through request middleware
-        request = self.request().wsgi_request
-
-        engine = import_module(settings.SESSION_ENGINE)
-        UserModel = get_user_model()
-        if self.session:
-            request.session = self.session
-            uid = self.session.get("_auth_user_id")
-            if uid:
-                request.user = UserModel._default_manager.get(pk=uid)
-        else:
-            request.session = engine.SessionStore()
-        logout(request)
-        self.cookies = SimpleCookie()
 
     def _handle_redirects(self, response, **extra):
         "Follows any redirects by requesting responses from the server using GET."
