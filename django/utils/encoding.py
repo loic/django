@@ -4,10 +4,13 @@ import codecs
 import datetime
 from decimal import Decimal
 import locale
+import re
 
 from django.utils.functional import Promise
 from django.utils import six
-from django.utils.six.moves.urllib.parse import quote
+from django.utils.six.moves.urllib.parse import quote, unquote
+if six.PY3:
+    from urllib.parse import unquote_to_bytes
 
 
 class DjangoUnicodeDecodeError(UnicodeDecodeError):
@@ -202,6 +205,46 @@ def iri_to_uri(iri):
     if iri is None:
         return iri
     return quote(force_bytes(iri), safe=b"/#%[]=:;$&()+,!?*@'~")
+
+
+def uri_to_iri(uri, encoding='utf-8'):
+    """
+    Converts a Uniform Resource Identifier(URI) into an Internationalized
+    Resource Identifier(IRI).
+
+    This is the algorithm from section 3.2 of RFC 3987.
+    Returns a valid IRI. By default, its a utf-8 decoded string.
+    """
+    if six.PY3:
+        iri = unquote_to_bytes(uri)
+    else:
+        iri = unquote(uri)
+    iri = repercent_broken_unicode(iri)
+    if encoding:
+        iri = iri.decode(encoding)
+    return iri
+
+
+def repercent_broken_unicode(path):
+    """
+    As per section 3.2 of RFC 3987, step three of converting a URI into an IRI,
+    we need to re-percent-encode any octet produced that is not part of a
+    strictly legal UTF-8 octet sequence.
+    """
+    try:
+        path.decode('utf-8')
+        return path
+    except UnicodeDecodeError as e:
+        first = path[:e.start]
+        last = path[e.start + 1:]
+        # Invalid utf-8 should remain URL-encoded.
+        # Refs. #19508
+        mid = re.findall(b"[^\x00-\x7f]", path[e.start:])[0]
+        val = quote(force_bytes(mid), safe=b"/#%[]=:;$&()+,!?*@'~")
+        if six.PY3:
+            val = val.encode('utf-8')
+        path = first + val + last
+        return repercent_broken_unicode(path)
 
 
 def filepath_to_uri(path):
