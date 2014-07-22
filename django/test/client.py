@@ -20,7 +20,7 @@ from django.http import SimpleCookie, HttpRequest, QueryDict
 from django.template import TemplateDoesNotExist
 from django.test import signals
 from django.utils.functional import curry, SimpleLazyObject
-from django.utils.encoding import force_bytes, force_str
+from django.utils.encoding import force_bytes, force_str, uri_to_iri
 from django.utils.http import urlencode
 from django.utils.itercompat import is_iterable
 from django.utils import six
@@ -270,10 +270,12 @@ class RequestFactory(object):
         # If there are parameters, add them
         if parsed[3]:
             path += str(";") + force_str(parsed[3])
-        path = unquote(path)
-        # WSGI requires latin-1 encoded strings. See get_path_info().
+        path = uri_to_iri(path)
         if six.PY3:
+            # WSGI requires latin-1 encoded strings. See get_path_info().
             path = path.encode('utf-8').decode('iso-8859-1')
+        else:
+            path = path.encode('utf-8')
         return path
 
     def get(self, path, data=None, secure=False, **extra):

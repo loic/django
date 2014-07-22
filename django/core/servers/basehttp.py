@@ -18,6 +18,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.management.color import color_style
 from django.core.wsgi import get_wsgi_application
 from django.utils import six
+from django.utils.encoding import uri_to_iri
 from django.utils.module_loading import import_string
 from django.utils.six.moves import socketserver
 
@@ -106,6 +107,19 @@ class WSGIRequestHandler(simple_server.WSGIRequestHandler, object):
             msg = self.style.HTTP_SERVER_ERROR(msg)
 
         sys.stderr.write(msg)
+
+    def get_environ(self):
+        env = super(WSGIRequestHandler, self).get_environ()
+        if '?' in self.path:
+            path, query = self.path.split('?', 1)
+        else:
+            path, query = self.path, ''
+        env['PATH_INFO'] = uri_to_iri(path)
+        if six.PY3:
+            env['PATH_INFO'] = env['PATH_INFO'].encode('utf-8').decode('iso-8859-1')
+        else:
+            env['PATH_INFO'] = env['PATH_INFO'].encode('utf-8')
+        return env
 
 
 def run(addr, port, wsgi_handler, ipv6=False, threading=False):

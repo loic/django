@@ -7,7 +7,7 @@ from django.core.signals import request_started, request_finished
 from django.db import close_old_connections, connection
 from django.test import RequestFactory, TestCase, TransactionTestCase
 from django.test import override_settings
-from django.utils.encoding import force_str
+from django.utils.encoding import force_str, uri_to_iri
 from django.utils import six
 
 
@@ -129,3 +129,52 @@ class HandlerSuspiciousOpsTest(TestCase):
     def test_suspiciousop_in_view_returns_400(self):
         response = self.client.get('/suspicious/')
         self.assertEqual(response.status_code, 400)
+
+
+@override_settings(ROOT_URLCONF='handlers.urls')
+class HandlerNotFoundTest(TestCase):
+
+    def test_invalid_urls(self):
+        response = self.client.get('~%A9helloworld')
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(response, '~%A9helloworld', status_code=404)
+
+        response = self.client.get('d%aao%aaw%aan%aal%aao%aaa%aad%aa/')
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(response, 'd%AAo%AAw%AAn%AAl%AAo%AAa%AAd%AA', status_code=404)
+
+        response = self.client.get('/%E2%99%E2%99%A5/')
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(response, '%E2%99\u2665', status_code=404)
+
+        response = self.client.get('/%E2%98%8E%E2%A9%E2%99%A5/')
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(response, '\u260e%E2%A9\u2665', status_code=404)
+
+    def test_uri_to_iri(self):
+        """
+        Check if uri_to_iri is working fine.
+        """
+        def test(uri):
+            return uri_to_iri(uri.encode('utf-8'))
+
+        self.assertEqual(test('~%A9helloworld'), '~%A9helloworld')
+        self.assertEqual(test('d%aao%aaw%aan%aal%aao%aaa%aad%aa/'), 'd%AAo%AAw%AAn%AAl%AAo%AAa%AAd%AA/')
+        self.assertEqual(test('/%E2%99%E2%99%A5/'), '/%E2%99\u2665/')
+        self.assertEqual(test('/%E2%99%A5'), '/\u2665')
+        self.assertEqual(test('/%E2%98%80%E2%99%A5/'), '/\u2600\u2665/')
+        self.assertEqual(test('/%E2%98%8E%E2%A9%E2%99%A5/'), '/\u260e%E2%A9\u2665/')
+        self.assertEqual(test('/%2F%25?q=%C3%B6&x=%3D%25#%25'), '//%?q=\xf6&x==%#%')
+        self.assertEqual(test('/%E2%98%90%E2%98%9A%E2%98%A3'), '/\u2610\u261a\u2623')
+        self.assertEqual(test('/%E2%99%BF%99☃%E2%99%A3%E2%98%BD%A9'), '/\u267f%99\u2603\u2663\u263d%A9')
+        self.assertEqual(test('/%E2%98%90/fred?utf8=%E2%9C%93'), '/\u2610/fred?utf8=\u2713')
+        self.assertEqual(test('/%A7%25%10%98%25'), '/%A7%\x10%98%')
+        self.assertEqual(test('/\xe2\x98\x90/fred?utf8=\xe2\x9c\x93'), '/\xe2\x98\x90/fred?utf8=\xe2\x9c\x93')
+        self.assertEqual(test('/üsername'), '/\xfcsername')
+        self.assertEqual(test('/üser:pässword@☃'), '/\xfcser:p\xe4ssword@\u2603')
+        self.assertEqual(test('/%3Fmeh?foo=%26%A9'), '/?meh?foo=&%A9')
+        self.assertEqual(test('/%E2%A8%87%87%A5%E2%A8%A0'), '/\u2a07%87%A5\u2a20')
+        self.assertEqual(test('/你好'), '/\u4f60\u597d')
+
+        environ = RequestFactory().get('/%E2%A8%87%87%A5%E2%A8%A0').environ
+        self.assertTrue(isinstance(environ['PATH_INFO'], six.text_type))
