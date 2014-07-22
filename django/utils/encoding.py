@@ -207,22 +207,19 @@ def iri_to_uri(iri):
     return quote(force_bytes(iri), safe=b"/#%[]=:;$&()+,!?*@'~")
 
 
-def uri_to_iri(uri, encoding='utf-8'):
+def uri_to_iri(uri):
     """
     Converts a Uniform Resource Identifier(URI) into an Internationalized
     Resource Identifier(IRI).
 
     This is the algorithm from section 3.2 of RFC 3987.
-    Returns a valid IRI. By default, its a utf-8 decoded string.
+    Returns a valid IRI utf-8 encoded bytes.
     """
-    if six.PY3:
-        iri = unquote_to_bytes(uri)
-    else:
-        iri = unquote(uri)
-    iri = repercent_broken_unicode(iri)
-    if encoding:
-        iri = iri.decode(encoding)
-    return iri
+    if uri is None:
+        return uri
+    uri = force_bytes(uri)
+    iri = unquote(uri) if six.PY2 else unquote_to_bytes(uri)
+    return repercent_broken_unicode(iri)
 
 
 def repercent_broken_unicode(path):

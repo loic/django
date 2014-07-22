@@ -12,7 +12,7 @@ from django.apps import apps
 from django.conf import settings
 from django.core import urlresolvers
 from django.core.handlers.base import BaseHandler
-from django.core.handlers.wsgi import WSGIRequest
+from django.core.handlers.wsgi import WSGIRequest, ISO_8859_1
 from django.core.signals import (request_started, request_finished,
     got_request_exception)
 from django.db import close_old_connections
@@ -271,12 +271,8 @@ class RequestFactory(object):
         if parsed[3]:
             path += str(";") + force_str(parsed[3])
         path = uri_to_iri(path)
-        if six.PY3:
-            # WSGI requires latin-1 encoded strings. See get_path_info().
-            path = path.encode('utf-8').decode('iso-8859-1')
-        else:
-            path = path.encode('utf-8')
-        return path
+        # WSGI requires latin-1 decoded strings.
+        return path if six.PY2 else path.decode(ISO_8859_1)
 
     def get(self, path, data=None, secure=False, **extra):
         "Construct a GET request."

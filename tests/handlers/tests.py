@@ -156,67 +156,40 @@ class HandlerNotFoundTest(TestCase):
         Check if uri_to_iri is working fine.
         """
         def test(uri):
-            return uri_to_iri(uri.encode('utf-8'))
+            return uri_to_iri(uri).decode('utf-8')
 
         self.assertEqual(test('~%A9helloworld'), '~%A9helloworld')
         self.assertEqual(test('d%AAo%AAw%AAn%AAl%AAo%AAa%AAd%AA/'), 'd%AAo%AAw%AAn%AAl%AAo%AAa%AAd%AA/')
-        self.assertEqual(test('/%E2%99%E2%99%A5/'), '/%E2%99\u2665/')
-        self.assertEqual(test('/%E2%99%A5'), '/\u2665')
-        self.assertEqual(test('/%E2%98%80%E2%99%A5/'), '/\u2600\u2665/')
-        self.assertEqual(test('/%E2%98%8E%E2%A9%E2%99%A5/'), '/\u260e%E2%A9\u2665/')
-        self.assertEqual(test('/%2F%25?q=%C3%B6&x=%3D%25#%25'), '//%?q=\xf6&x==%#%')
-        self.assertEqual(test('/%E2%98%90%E2%98%9A%E2%98%A3'), '/\u2610\u261a\u2623')
-        self.assertEqual(test('/%E2%99%BF%99☃%E2%99%A3%E2%98%BD%A9'), '/\u267f%99\u2603\u2663\u263d%A9')
-        self.assertEqual(test('/%E2%98%90/fred?utf8=%E2%9C%93'), '/\u2610/fred?utf8=\u2713')
-        self.assertEqual(test('/\xe2\x98\x90/fred?utf8=\xe2\x9c\x93'), '/\xe2\x98\x90/fred?utf8=\xe2\x9c\x93')
-        self.assertEqual(test('/üsername'), '/\xfcsername')
-        self.assertEqual(test('/üser:pässword@☃'), '/\xfcser:p\xe4ssword@\u2603')
+        self.assertEqual(test('/%E2%99%E2%99%A5/'), '/%E2%99♥/')
+        self.assertEqual(test('/%E2%99%A5'), '/♥')
+        self.assertEqual(test('/%E2%98%80%E2%99%A5/'), '/☀♥/')
+        self.assertEqual(test('/%E2%98%8E%E2%A9%E2%99%A5/'), '/☎%E2%A9♥/')
+        self.assertEqual(test('/%2F%25?q=%C3%B6&x=%3D%25#%25'), '//%?q=ö&x==%#%')  # Why is %C3%B6 converted, it's not a triplet?
+        self.assertEqual(test('/%E2%98%90%E2%98%9A%E2%98%A3'), '/☐☚☣')
+        self.assertEqual(test('/%E2%99%BF%99☃%E2%99%A3%E2%98%BD%A9'), '/♿%99☃♣☽%A9')
+        self.assertEqual(test('/%E2%98%90/fred?utf8=%E2%9C%93'), '/☐/fred?utf8=✓')
+        self.assertEqual(test('/☐/fred?utf8=☓'), '/☐/fred?utf8=☓')
+        self.assertEqual(test('/üsername'), '/üsername')
+        self.assertEqual(test('/üser:pässword@☃'), '/üser:pässword@☃')
         self.assertEqual(test('/%3Fmeh?foo=%26%A9'), '/?meh?foo=&%A9')
-        self.assertEqual(test('/%E2%A8%87%87%A5%E2%A8%A0'), '/\u2a07%87%A5\u2a20')
-        self.assertEqual(test('/你好'), '/\u4f60\u597d')
-
+        self.assertEqual(test('/%E2%A8%87%87%A5%E2%A8%A0'), '/⨇%87%A5⨠')
+        self.assertEqual(test('/你好'), '/你好')
 
     def test_complementary(self):
-        def test(uri):
-            self.assertEqual(iri_to_uri(uri_to_iri(uri.encode('utf-8'))), uri)
+        def test_iri_to_iri(iri):
+            iri = iri.encode('utf-8')
+            self.assertEqual(uri_to_iri(iri_to_uri(iri)), iri)
 
+        def test_uri_to_uri(uri):
+            self.assertEqual(iri_to_uri(uri_to_iri(uri)), uri)
 
-        test('~%A9helloworld')
-        test('d%AAo%AAw%AAn%AAl%AAo%AAa%AAd%AA/')
-        test('/%E2%99%E2%99%A5/')
-        test('/%E2%99%A5')
-        test('/%E2%98%80%E2%99%A5/')
-        test('/%E2%98%8E%E2%A9%E2%99%A5/')
-        test('/%E2%98%90%E2%98%9A%E2%98%A3')
-        test('/%E2%98%90/fred?utf8=%E2%9C%93')
-        test('/%E2%A8%87%87%A5%E2%A8%A0')
+        test_iri_to_iri('~%A9helloworld')
+        test_iri_to_iri('/üser:pässword@☃')
+        test_iri_to_iri('/你好')
 
-        # test('/%2F%25?q=%C3%B6&x=%3D%25#%25')
-        # AssertionError: '//%?q=%C3%B6&x==%#%' != u'/%2F%25?q=%C3%B6&x=%3D%25#%25'
-
-
-        # test('/%E2%99%BF%99☃%E2%99%A3%E2%98%BD%A9')
-        # AssertionError: '/%E2%99%BF%99%E2%98%83%E2%99%A3%E2%98%BD%A9' != u'/%E2%99%BF%99\u2603%E2%99%A3%E2%98%BD%A9'
-        
-
-        # test('/\xe2\x98\x90/fred?utf8=\xe2\x9c\x93')
-        # AssertionError: '/%C3%A2%C2%98%C2%90/fred?utf8=%C3%A2%C2%9C%C2%93' != u'/\xe2\x98\x90/fred?utf8=\xe2\x9c\x93'
-        
-
-        # test('/üsername')
-        # AssertionError: '/%C3%BCsername' != u'/\xfcsername'
-        
-
-        # test('/üser:pässword@☃')
-        # AssertionError: '/%C3%BCser:p%C3%A4ssword@%E2%98%83' != u'/\xfcser:p\xe4ssword@\u2603'
-        
-
-        # test('/%3Fmeh?foo=%26%A9')
-        # AssertionError: '/?meh?foo=&%A9' != u'/%3Fmeh?foo=%26%A9'
-        
-
-        # test('/你好')
-        # AssertionError: '/%E4%BD%A0%E5%A5%BD' != u'/\u4f60\u597d'
+        test_uri_to_uri('/%E2%99%A5')
+        test_uri_to_uri('/%E2%98%80%E2%99%A5')
+        test_uri_to_uri('/%E2%98%80%E2%99%A5')
 
     def test_environ_path_info_type(self):
         environ = RequestFactory().get('/%E2%A8%87%87%A5%E2%A8%A0').environ
