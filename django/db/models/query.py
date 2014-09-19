@@ -63,7 +63,17 @@ class QuerySet(object):
         self._prefetch_done = False
         self._known_related_objects = {}        # {rel_field, {pk: rel_obj}}
 
+    def get_initial_queryset(self):
+        """
+        Hook to provide a default state for custom QuerySet.
+        """
+        return self
+    get_initial_queryset.queryset_only = True
+
     def as_manager(cls):
+        """
+        Create and instantiate a Manager from this QuerySet.
+        """
         # Address the circular dependency between `Queryset` and `Manager`.
         from django.db.models.manager import Manager
         return Manager.from_queryset(cls)()
