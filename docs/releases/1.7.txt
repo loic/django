@@ -158,62 +158,6 @@ to see what we consider serializable, and to find out how to make your own
 classes serializable, read the
 :ref:`migration serialization documentation <migration-serializing>`.
 
-Calling custom ``QuerySet`` methods from the ``Manager``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Historically, the recommended way to make reusable model queries was to create
-methods on a custom ``Manager`` class. The problem with this approach was that
-after the first method call, you'd get back a ``QuerySet`` instance and
-couldn't call additional custom manager methods.
-
-Though not documented, it was common to work around this issue by creating a
-custom ``QuerySet`` so that custom methods could be chained; but the solution
-had a number of drawbacks:
-
-* The custom ``QuerySet`` and its custom methods were lost after the first
-  call to ``values()`` or ``values_list()``.
-
-* Writing a custom ``Manager`` was still necessary to return the custom
-  ``QuerySet`` class and all methods that were desired on the ``Manager``
-  had to be proxied to the ``QuerySet``. The whole process went against
-  the DRY principle.
-
-The :meth:`QuerySet.as_manager() <django.db.models.query.QuerySet.as_manager>`
-class method can now directly :ref:`create Manager with QuerySet methods
-<create-manager-with-queryset-methods>`::
-
-    class FoodQuerySet(models.QuerySet):
-        def pizzas(self):
-            return self.filter(kind='pizza')
-
-        def vegetarian(self):
-            return self.filter(vegetarian=True)
-
-    class Food(models.Model):
-        kind = models.CharField(max_length=50)
-        vegetarian = models.BooleanField(default=False)
-        objects = FoodQuerySet.as_manager()
-
-    Food.objects.pizzas().vegetarian()
-
-Using a custom manager when traversing reverse relations
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-It is now possible to :ref:`specify a custom manager
-<using-custom-reverse-manager>` when traversing a reverse relationship::
-
-    class Blog(models.Model):
-        pass
-
-    class Entry(models.Model):
-        blog = models.ForeignKey(Blog)
-
-        objects = models.Manager()  # Default Manager
-        entries = EntryManager()    # Custom Manager
-
-    b = Blog.objects.get(id=1)
-    b.entry_set(manager='entries').all()
-
 New system check framework
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -224,34 +168,6 @@ own checks for your own apps and libraries.
 
 To perform system checks, you use the :djadmin:`check` management command.
 This command replaces the older :djadmin:`validate` management command.
-
-New ``Prefetch`` object for advanced ``prefetch_related`` operations.
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The new :class:`~django.db.models.Prefetch` object allows customizing
-prefetch operations.
-
-You can specify the ``QuerySet`` used to traverse a given relation
-or customize the storage location of prefetch results.
-
-This enables things like filtering prefetched relations, calling
-:meth:`~django.db.models.query.QuerySet.select_related()` from a prefetched
-relation, or prefetching the same relation multiple times with different
-querysets. See :meth:`~django.db.models.query.QuerySet.prefetch_related()`
-for more details.
-
-Admin shortcuts support time zones
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The "today" and "now" shortcuts next to date and time input widgets in the
-admin are now operating in the :ref:`current time zone
-<default-current-time-zone>`. Previously, they used the browser time zone,
-which could result in saving the wrong value when it didn't match the current
-time zone on the server.
-
-In addition, the widgets now display a help message when the browser and
-server time zone are different, to clarify how the value inserted in the field
-will be interpreted.
 
 Using database cursors as context managers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -296,74 +212,6 @@ example ``qs.filter(author__birthdate__year__lte=1981)``.
 For more information about both custom lookups and transforms refer to
 the :doc:`custom lookups </howto/custom-lookups>` documentation.
 
-Improvements to ``Form`` error handling
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-``Form.add_error()``
-^^^^^^^^^^^^^^^^^^^^
-
-Previously there were two main patterns for handling errors in forms:
-
-* Raising a :exc:`~django.core.exceptions.ValidationError` from within certain
-  functions (e.g. ``Field.clean()``, ``Form.clean_<fieldname>()``, or
-  ``Form.clean()`` for non-field errors.)
-
-* Fiddling with ``Form._errors`` when targeting a specific field in
-  ``Form.clean()`` or adding errors from outside of a "clean" method
-  (e.g. directly from a view).
-
-Using the former pattern was straightforward since the form can guess from the
-context (i.e. which method raised the exception) where the errors belong and
-automatically process them. This remains the canonical way of adding errors
-when possible. However the latter was fiddly and error-prone, since the burden
-of handling edge cases fell on the user.
-
-The new :meth:`~django.forms.Form.add_error()` method allows adding errors
-to specific form fields from anywhere without having to worry about the details
-such as creating instances of ``django.forms.utils.ErrorList`` or dealing with
-``Form.cleaned_data``. This new API replaces manipulating ``Form._errors``
-which now becomes a private API.
-
-See :ref:`validating-fields-with-clean` for an example using
-``Form.add_error()``.
-
-Error metadata
-^^^^^^^^^^^^^^
-
-The :exc:`~django.core.exceptions.ValidationError` constructor accepts metadata
-such as error ``code`` or ``params`` which are then available for interpolating
-into the error message (see :ref:`raising-validation-error` for more details);
-however, before Django 1.7 those metadata were discarded as soon as the errors
-were added to :attr:`Form.errors <django.forms.Form.errors>`.
-
-:attr:`Form.errors <django.forms.Form.errors>` and
-``django.forms.utils.ErrorList`` now store the ``ValidationError`` instances
-so these metadata can be retrieved at any time through the new
-:meth:`Form.errors.as_data <django.forms.Form.errors.as_data()>` method.
-
-The retrieved ``ValidationError`` instances can then be identified thanks to
-their error ``code`` which enables things like rewriting the error's message
-or writing custom logic in a view when a given error is present. It can also
-be used to serialize the errors in a custom format such as XML.
-
-The new :meth:`Form.errors.as_json() <django.forms.Form.errors.as_json()>`
-method is a convenience method which returns error messages along with error
-codes serialized as JSON. ``as_json()`` uses ``as_data()`` and gives an idea
-of how the new system could be extended.
-
-Error containers and backward compatibility
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Heavy changes to the various error containers were necessary in order
-to support the features above, specifically
-:attr:`Form.errors <django.forms.Form.errors>`,
-``django.forms.utils.ErrorList``, and the internal storages of
-:exc:`~django.core.exceptions.ValidationError`. These containers which used
-to store error strings now store ``ValidationError`` instances and public APIs
-have been adapted to make this as transparent as possible, but if you've been
-using private APIs, some of the changes are backwards incompatible; see
-:ref:`validation-error-constructor-and-internal-storage` for more details.
-
 Minor features
 ~~~~~~~~~~~~~~
 
@@ -388,11 +236,6 @@ Minor features
 
 * The admin's search fields can now be customized per-request thanks to the new
   :meth:`django.contrib.admin.ModelAdmin.get_search_fields` method.
-
-* The :meth:`ModelAdmin.get_fields()
-  <django.contrib.admin.ModelAdmin.get_fields>` method may be overridden to
-  customize the value of :attr:`ModelAdmin.fields
-  <django.contrib.admin.ModelAdmin.fields>`.
 
 * In addition to the existing ``admin.site.register`` syntax, you can use the
   new :func:`~django.contrib.admin.register` decorator to register a
@@ -638,29 +481,9 @@ Forms
   :class:`~django.forms.TypedChoiceField` ``coerce`` method return an arbitrary
   value.
 
-* :attr:`SelectDateWidget.months
-  <django.forms.extras.widgets.SelectDateWidget.months>` can be used to
-  customize the wording of the months displayed in the select widget.
-
 * The ``min_num`` and ``validate_min`` parameters were added to
   :func:`~django.forms.formsets.formset_factory` to allow validating
   a minimum number of submitted forms.
-
-* The metaclasses used by ``Form`` and ``ModelForm`` have been reworked to
-  support more inheritance scenarios. The previous limitation that prevented
-  inheriting from both ``Form`` and ``ModelForm`` simultaneously have been
-  removed as long as ``ModelForm`` appears first in the MRO.
-
-* It's now possible to remove a field from a ``Form`` when subclassing by
-  setting the name to ``None``.
-
-* It's now possible to customize the error messages for ``ModelForm``’s
-  ``unique``, ``unique_for_date``, and ``unique_together`` constraints.
-  In order to support ``unique_together`` or any other ``NON_FIELD_ERROR``,
-  ``ModelForm`` now looks for the ``NON_FIELD_ERROR`` key in the
-  ``error_messages`` dictionary of the ``ModelForm``’s inner ``Meta`` class.
-  See :ref:`considerations regarding model's error_messages
-  <considerations-regarding-model-errormessages>` for more details.
 
 Internationalization
 ^^^^^^^^^^^^^^^^^^^^
@@ -758,9 +581,6 @@ Models
   ``Meta`` option allows you to customize (or disable) creation of the default
   add, change, and delete permissions.
 
-* Explicit :class:`~django.db.models.OneToOneField` for
-  :ref:`multi-table-inheritance` are now discovered in abstract classes.
-
 * Is it now possible to avoid creating a backward relation for
   :class:`~django.db.models.OneToOneField` by setting its
   :attr:`~django.db.models.ForeignKey.related_name` to
@@ -768,11 +588,6 @@ Models
 
 * :class:`F expressions <django.db.models.F>` support the power operator
   (``**``).
-
-* The ``remove()`` and ``clear()`` methods of the related managers created by
-  ``ForeignKey`` and ``GenericForeignKey`` now accept the ``bulk`` keyword
-  argument to control whether or not to perform operations in bulk
-  (i.e. using ``QuerySet.update()``). Defaults to ``True``.
 
 * It is now possible to use ``None`` as a query value for the :lookup:`iexact`
   lookup.
@@ -1215,34 +1030,6 @@ formats or :mod:`django.contrib.syndication`.
 
 .. _pytz: https://pypi.python.org/pypi/pytz/
 
-``remove()`` and ``clear()`` methods of related managers
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The ``remove()`` and ``clear()`` methods of the related managers created by
-``ForeignKey``, ``GenericForeignKey``, and ``ManyToManyField`` suffered from a
-number of issues. Some operations ran multiple data modifying queries without
-wrapping them in a transaction, and some operations didn't respect default
-filtering when it was present (i.e. when the default manager on the related
-model implemented a custom ``get_queryset()``).
-
-Fixing the issues introduced some backward incompatible changes:
-
-- The default implementation of ``remove()`` for ``ForeignKey`` related managers
-  changed from a series of ``Model.save()`` calls to a single
-  ``QuerySet.update()`` call. The change means that ``pre_save`` and
-  ``post_save`` signals aren't sent anymore. You can use the ``bulk=False``
-  keyword argument to revert to the previous behavior.
-
-- The ``remove()`` and ``clear()`` methods for ``GenericForeignKey`` related
-  managers now perform bulk delete. The ``Model.delete()`` method isn't called
-  on each instance anymore. You can use the ``bulk=False`` keyword argument to
-  revert to the previous behavior.
-
-- The ``remove()`` and ``clear()`` methods for ``ManyToManyField`` related
-  managers perform nested queries when filtering is involved, which may or
-  may not be an issue depending on your database and your data itself.
-  See :ref:`this note <nested-queries-performance>` for more details.
-
 Admin login redirection strategy
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1376,12 +1163,6 @@ Miscellaneous
 * The old cache URI syntax (e.g. ``"locmem://"``) is no longer supported. It
   still worked, even though it was not documented or officially supported. If
   you're still using it, please update to the current :setting:`CACHES` syntax.
-
-* The default ordering of ``Form`` fields in case of inheritance has changed to
-  follow normal Python MRO. Fields are now discovered by iterating through the
-  MRO in reverse with the topmost class coming last. This only affects you if
-  you relied on the default field ordering while having fields defined on both
-  the current class *and* on a parent ``Form``.
 
 * The ``required`` argument of
   :class:`~django.forms.extras.widgets.SelectDateWidget` has been removed.
