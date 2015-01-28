@@ -114,9 +114,6 @@ class ManyToOneTests(TestCase):
                 "<Article: This is a test>",
             ])
         self.assertQuerysetEqual(self.r2.article_set.all(), ["<Article: Paul's story>"])
-        # Reporter cannot be null - there should not be a clear or remove method
-        self.assertFalse(hasattr(self.r2.article_set, 'remove'))
-        self.assertFalse(hasattr(self.r2.article_set, 'clear'))
 
     def test_selects(self):
         self.r.article_set.create(headline="John's second story",
