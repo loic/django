@@ -70,14 +70,14 @@ class DeconstructibleCustomManager(BaseCustomManager.from_queryset(CustomQuerySe
         super(DeconstructibleCustomManager, self).__init__(a)
 
 
-class FunPeopleManager(models.Manager):
-    def get_queryset(self):
-        return super(FunPeopleManager, self).get_queryset().filter(fun=True)
+class FunPeopleQuerySet(models.QuerySet):
+    def init(self):
+        return self.filter(fun=True)
 
 
-class BoringPeopleManager(models.Manager):
-    def get_queryset(self):
-        return super(BoringPeopleManager, self).get_queryset().filter(fun=False)
+class BoringPeopleQuerySet(models.QuerySet):
+    def init(self):
+        return self.filter(fun=False)
 
 
 @python_2_unicode_compatible
@@ -92,8 +92,8 @@ class Person(models.Model):
     favorite_thing = GenericForeignKey('favorite_thing_type', 'favorite_thing_id')
 
     objects = PersonManager()
-    fun_people = FunPeopleManager()
-    boring_people = BoringPeopleManager()
+    fun_people = FunPeopleQuerySet.as_manager()
+    boring_people = BoringPeopleQuerySet.as_manager()
 
     custom_queryset_default_manager = CustomQuerySet.as_manager()
     custom_queryset_custom_manager = CustomManager('hello')
@@ -113,7 +113,7 @@ class FunPerson(models.Model):
     favorite_thing_id = models.IntegerField(null=True)
     favorite_thing = GenericForeignKey('favorite_thing_type', 'favorite_thing_id')
 
-    objects = FunPeopleManager()
+    objects = FunPeopleQuerySet.as_manager()
 
     def __str__(self):
         return "%s %s" % (self.first_name, self.last_name)
