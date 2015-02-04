@@ -165,7 +165,19 @@ class QuerySet(object):
     Represents a lazy database lookup for a set of objects.
     """
 
-    def __init__(self, model=None, query=None, using=None, hints=None):
+    def __new__(cls, *args, **kwargs):
+        queryset = super(QuerySet, cls).__new__(cls)
+        queryset.__initialized = False
+        cls.__init__(queryset, *args, **kwargs)
+        queryset.__initialized = True
+        if not queryset._cloned:
+            return queryset.init()
+        return queryset
+
+    def __init__(self, model=None, query=None, using=None, hints=None, cloned=False):
+        if self.__initialized:
+            return
+
         self.model = model
         self._db = using
         self._hints = hints or {}
@@ -178,6 +190,10 @@ class QuerySet(object):
         self._known_related_objects = {}  # {rel_field, {pk: rel_obj}}
         self._iterator_class = ModelIterator
         self._fields = None
+        self._cloned = cloned
+
+    def init(self):
+        return self
 
     def as_manager(cls):
         # Address the circular dependency between `Queryset` and `Manager`.
@@ -1044,7 +1060,7 @@ class QuerySet(object):
         query = self.query.clone()
         if self._sticky_filter:
             query.filter_is_sticky = True
-        clone = self.__class__(model=self.model, query=query, using=self._db, hints=self._hints)
+        clone = self.__class__(model=self.model, query=query, using=self._db, hints=self._hints, cloned=True)
         clone._for_write = self._for_write
         clone._prefetch_related_lookups = self._prefetch_related_lookups[:]
         clone._known_related_objects = self._known_related_objects
