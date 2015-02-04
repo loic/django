@@ -179,6 +179,10 @@ class QuerySet(object):
         self._iterator_class = ModelIterator
         self._fields = None
 
+    @classmethod
+    def init(cls, *args, **kwargs):
+        return cls(*args, **kwargs)
+
     def as_manager(cls):
         # Address the circular dependency between `Queryset` and `Manager`.
         from django.db.models.manager import Manager
