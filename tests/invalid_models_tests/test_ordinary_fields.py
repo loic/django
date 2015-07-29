@@ -82,22 +82,6 @@ class CharFieldTests(IsolatedModelsTestCase, TestCase):
         expected = []
         self.assertEqual(errors, expected)
 
-    def test_missing_max_length(self):
-        class Model(models.Model):
-            field = models.CharField()
-
-        field = Model._meta.get_field('field')
-        errors = field.check()
-        expected = [
-            Error(
-                "CharFields must define a 'max_length' attribute.",
-                hint=None,
-                obj=field,
-                id='fields.E120',
-            ),
-        ]
-        self.assertEqual(errors, expected)
-
     def test_negative_max_length(self):
         class Model(models.Model):
             field = models.CharField(max_length=-1)

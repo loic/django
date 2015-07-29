@@ -27,7 +27,7 @@ from django.utils.functional import lazy
 from .models import (
     Bar, BigD, BigIntegerModel, BigS, BooleanModel, DataModel, DateTimeModel,
     Document, FksToBooleans, FkToChar, FloatModel, Foo, GenericIPAddress,
-    IntegerModel, NullBooleanModel, PositiveIntegerModel,
+    IntegerModel, NoMaxLengthCharModel, NullBooleanModel, PositiveIntegerModel,
     PositiveSmallIntegerModel, Post, PrimaryKeyCharModel, RenamedField,
     SmallIntegerModel, UnicodeSlugField, VerboseNameField, Whiz, WhizIter,
     WhizIterEmpty,
@@ -248,11 +248,43 @@ class ManyToManyFieldTests(test.SimpleTestCase):
         )
 
 
+class CharFieldTests(test.TestCase):
+    def test_to_python(self):
+        """CharField.to_python() should return a string"""
+        f = models.CharField()
+        self.assertEqual(f.to_python(1), '1')
+
+    def test_max_length_none(self):
+        long_str = '!' * 4096
+        m = NoMaxLengthCharModel.objects.create(text=long_str)
+        self.assertEqual(m.text, long_str)
+
+    def test_max_length_passed_to_formfield(self):
+        """
+        Test that CharField and TextField pass their max_length attributes to
+        form fields created using their .formfield() method (#22206).
+        """
+        cf1 = models.CharField()
+        cf2 = models.CharField(max_length=1234)
+        self.assertIsNone(cf1.formfield().max_length)
+        self.assertEqual(1234, cf2.formfield().max_length)
+
+
 class TextFieldTests(test.TestCase):
     def test_to_python(self):
         """TextField.to_python() should return a string"""
         f = models.TextField()
         self.assertEqual(f.to_python(1), '1')
+
+    def test_max_length_passed_to_formfield(self):
+        """
+        Test that CharField and TextField pass their max_length attributes to
+        form fields created using their .formfield() method (#22206).
+        """
+        tf1 = models.TextField()
+        tf2 = models.TextField(max_length=2345)
+        self.assertIsNone(tf1.formfield().max_length)
+        self.assertEqual(2345, tf2.formfield().max_length)
 
 
 class DateTimeFieldTests(test.TestCase):
@@ -352,21 +384,6 @@ class BooleanFieldTests(test.TestCase):
 
     def test_nullbooleanfield_to_python(self):
         self._test_to_python(models.NullBooleanField())
-
-    def test_charfield_textfield_max_length_passed_to_formfield(self):
-        """
-        Test that CharField and TextField pass their max_length attributes to
-        form fields created using their .formfield() method (#22206).
-        """
-        cf1 = models.CharField()
-        cf2 = models.CharField(max_length=1234)
-        self.assertIsNone(cf1.formfield().max_length)
-        self.assertEqual(1234, cf2.formfield().max_length)
-
-        tf1 = models.TextField()
-        tf2 = models.TextField(max_length=2345)
-        self.assertIsNone(tf1.formfield().max_length)
-        self.assertEqual(2345, tf2.formfield().max_length)
 
     def test_booleanfield_choices_blank(self):
         """

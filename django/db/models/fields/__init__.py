@@ -1071,24 +1071,17 @@ class CharField(Field):
 
     def __init__(self, *args, **kwargs):
         super(CharField, self).__init__(*args, **kwargs)
-        self.validators.append(validators.MaxLengthValidator(self.max_length))
+        if self.max_length is not None:
+            self.validators.append(validators.MaxLengthValidator(self.max_length))
 
     def check(self, **kwargs):
         errors = super(CharField, self).check(**kwargs)
-        errors.extend(self._check_max_length_attribute(**kwargs))
+        if self.max_length is not None:
+            errors.extend(self._check_max_length_attribute(**kwargs))
         return errors
 
     def _check_max_length_attribute(self, **kwargs):
-        if self.max_length is None:
-            return [
-                checks.Error(
-                    "CharFields must define a 'max_length' attribute.",
-                    hint=None,
-                    obj=self,
-                    id='fields.E120',
-                )
-            ]
-        elif not isinstance(self.max_length, six.integer_types) or self.max_length <= 0:
+        if not isinstance(self.max_length, six.integer_types) or self.max_length <= 0:
             return [
                 checks.Error(
                     "'max_length' must be a positive integer.",
@@ -1097,10 +1090,11 @@ class CharField(Field):
                     id='fields.E121',
                 )
             ]
-        else:
-            return []
+        return []
 
     def get_internal_type(self):
+        if self.max_length is None:
+            return "TextField"
         return "CharField"
 
     def to_python(self, value):

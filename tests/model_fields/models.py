@@ -77,6 +77,8 @@ class WhizIterEmpty(models.Model):
 class BigD(models.Model):
     d = models.DecimalField(max_digits=38, decimal_places=30)
 
+class NoMaxLengthCharModel(models.Model):
+    text = models.CharField()
 
 class FloatModel(models.Model):
     size = models.FloatField()
