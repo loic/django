@@ -4,7 +4,6 @@ from __future__ import unicode_literals
 from itertools import chain
 
 from django.apps import apps
-from django.utils import six
 
 
 def check_generic_foreign_keys(app_configs=None, **kwargs):
@@ -17,7 +16,7 @@ def check_generic_foreign_keys(app_configs=None, **kwargs):
     errors = []
     fields = (obj
         for model in models
-        for obj in six.itervalues(vars(model))
+        for obj in model._meta.virtual_fields
         if isinstance(obj, GenericForeignKey))
     for field in fields:
         errors.extend(field.check())

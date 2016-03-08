@@ -122,7 +122,7 @@ class GenericForeignKeyTests(SimpleTestCase):
         class Model(models.Model):
             field = GenericForeignKey()
         expected = "contenttypes_tests.Model.field"
-        actual = force_str(Model.field)
+        actual = force_str(Model.field.field)
         self.assertEqual(expected, actual)
 
     def test_missing_content_type_field(self):
@@ -131,12 +131,12 @@ class GenericForeignKeyTests(SimpleTestCase):
             object_id = models.PositiveIntegerField()
             content_object = GenericForeignKey()
 
-        errors = TaggedItem.content_object.check()
+        errors = TaggedItem.content_object.field.check()
         expected = [
             checks.Error(
                 "The GenericForeignKey content type references the non-existent field 'TaggedItem.content_type'.",
                 hint=None,
-                obj=TaggedItem.content_object,
+                obj=TaggedItem.content_object.field,
                 id='contenttypes.E002',
             )
         ]
@@ -149,7 +149,7 @@ class GenericForeignKeyTests(SimpleTestCase):
             content_object = GenericForeignKey(
                 'content_type', 'object_id')
 
-        errors = Model.content_object.check()
+        errors = Model.content_object.field.check()
         expected = [
             checks.Error(
                 "'Model.content_type' is not a ForeignKey.",
@@ -157,7 +157,7 @@ class GenericForeignKeyTests(SimpleTestCase):
                     "GenericForeignKeys must use a ForeignKey to "
                     "'contenttypes.ContentType' as the 'content_type' field."
                 ),
-                obj=Model.content_object,
+                obj=Model.content_object.field,
                 id='contenttypes.E003',
             )
         ]
@@ -170,7 +170,7 @@ class GenericForeignKeyTests(SimpleTestCase):
             content_object = GenericForeignKey(
                 'content_type', 'object_id')
 
-        errors = Model.content_object.check()
+        errors = Model.content_object.field.check()
         expected = [
             checks.Error(
                 "'Model.content_type' is not a ForeignKey to 'contenttypes.ContentType'.",
@@ -178,7 +178,7 @@ class GenericForeignKeyTests(SimpleTestCase):
                     "GenericForeignKeys must use a ForeignKey to "
                     "'contenttypes.ContentType' as the 'content_type' field."
                 ),
-                obj=Model.content_object,
+                obj=Model.content_object.field,
                 id='contenttypes.E004',
             )
         ]
@@ -190,12 +190,12 @@ class GenericForeignKeyTests(SimpleTestCase):
             # missing object_id field
             content_object = GenericForeignKey()
 
-        errors = TaggedItem.content_object.check()
+        errors = TaggedItem.content_object.field.check()
         expected = [
             checks.Error(
                 "The GenericForeignKey object ID references the non-existent field 'object_id'.",
                 hint=None,
-                obj=TaggedItem.content_object,
+                obj=TaggedItem.content_object.field,
                 id='contenttypes.E001',
             )
         ]
@@ -208,12 +208,12 @@ class GenericForeignKeyTests(SimpleTestCase):
             content_object_ = GenericForeignKey(
                 'content_type', 'object_id')
 
-        errors = Model.content_object_.check()
+        errors = Model.content_object_.field.check()
         expected = [
             checks.Error(
                 'Field names must not end with an underscore.',
                 hint=None,
-                obj=Model.content_object_,
+                obj=Model.content_object_.field,
                 id='fields.E001',
             )
         ]

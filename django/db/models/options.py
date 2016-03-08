@@ -371,22 +371,34 @@ class Options(object):
         # use that property directly because related_model is a cached property,
         # and all the models may not have been loaded yet; we don't want to cache
         # the string reference to the related_model.
-        def is_not_an_m2m_field(f):
-            return not (f.is_relation and f.many_to_many)
+        # def is_not_an_m2m_field(f):
+        #     return not (f.is_relation and f.many_to_many)
+        #
+        # def is_not_a_generic_relation(f):
+        #     return not (f.is_relation and f.one_to_many)
+        #
+        # def is_not_a_generic_foreign_key(f):
+        #     return not (
+        #         f.is_relation and f.many_to_one and not (hasattr(f.remote_field, 'model') and f.remote_field.model)
+        #     )
+        #
+        # return make_immutable_fields_list(
+        #     "fields",
+        #     (f for f in self._get_fields(reverse=False) if
+        #     is_not_an_m2m_field(f) and is_not_a_generic_relation(f)
+        #     and is_not_a_generic_foreign_key(f))
+        # )
 
-        def is_not_a_generic_relation(f):
-            return not (f.is_relation and f.one_to_many)
+        def is_not_a_to_many_field(f):
+            return not (f.is_relation and (f.many_to_many or f.one_to_many))
 
         def is_not_a_generic_foreign_key(f):
-            return not (
-                f.is_relation and f.many_to_one and not (hasattr(f.remote_field, 'model') and f.remote_field.model)
-            )
+            return not (f.is_relation and f.many_to_one and not f.remote_field)
 
         return make_immutable_fields_list(
             "fields",
             (f for f in self._get_fields(reverse=False) if
-            is_not_an_m2m_field(f) and is_not_a_generic_relation(f)
-            and is_not_a_generic_foreign_key(f))
+                is_not_a_to_many_field(f) and is_not_a_generic_foreign_key(f))
         )
 
     @cached_property

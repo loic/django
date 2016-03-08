@@ -9,57 +9,146 @@ from django.db import DEFAULT_DB_ALIAS, models, router, transaction
 from django.db.models import DO_NOTHING, signals
 from django.db.models.base import ModelBase, make_foreign_order_accessors
 from django.db.models.fields.related import (
-    ForeignObject, ForeignObjectRel, ReverseManyToOneDescriptor,
+    ForeignObject, ReverseManyToOneDescriptor,
     lazy_related_operation,
 )
 from django.db.models.query_utils import PathInfo
-from django.utils.encoding import python_2_unicode_compatible, smart_text
+from django.utils.encoding import smart_text
 from django.utils.functional import cached_property
 
 
-@python_2_unicode_compatible
-class GenericForeignKey(object):
+class ForwardGenericManyToOneDescriptor(object):
+    """
+    Accessor to the related object on the many-to-one relation created
+    by GenericForeignKey.
+
+    In the example::
+
+        class Comment(Model):
+            post = GenericForeignKey(Post)
+
+    ``comment.post`` is a ForwardGenericManyToOneDescriptor instance.
+    """
+
+    def __init__(self, field_with_rel):
+        self.field = field_with_rel
+        self.cache_name = self.field.get_cache_name()
+
+    def get_prefetch_queryset(self, instances, queryset=None):
+        if queryset is not None:
+            raise ValueError("Custom queryset can't be used for this lookup.")
+
+        # For efficiency, group the instances by content type and then do one
+        # query per model
+        fk_dict = defaultdict(set)
+        # We need one instance for each group in order to get the right db:
+        instance_dict = {}
+        ct_attname = self.field.model._meta.get_field(self.field.ct_field).get_attname()
+        for instance in instances:
+            # We avoid looking for values if either ct_id or fkey value is None
+            ct_id = getattr(instance, ct_attname)
+            if ct_id is not None:
+                fk_val = getattr(instance, self.field.fk_field)
+                if fk_val is not None:
+                    fk_dict[ct_id].add(fk_val)
+                    instance_dict[ct_id] = instance
+
+        ret_val = []
+        for ct_id, fkeys in fk_dict.items():
+            instance = instance_dict[ct_id]
+            ct = self.field.get_content_type(id=ct_id, using=instance._state.db)
+            ret_val.extend(ct.get_all_objects_for_this_type(pk__in=fkeys))
+
+        # For doing the join in Python, we have to match both the FK val and the
+        # content type, so we use a callable that returns a (fk, class) pair.
+        def gfk_key(obj):
+            ct_id = getattr(obj, ct_attname)
+            if ct_id is None:
+                return None
+            else:
+                model = self.field.get_content_type(id=ct_id,
+                                              using=obj._state.db).model_class()
+                return (model._meta.pk.get_prep_value(getattr(obj, self.field.fk_field)),
+                        model)
+
+        return (ret_val,
+                lambda obj: (obj._get_pk_val(), obj.__class__),
+                gfk_key,
+                True,
+                self.cache_name)
+
+    def is_cached(self, instance):
+        return hasattr(instance, self.cache_name)
+
+    def __get__(self, instance, cls=None):
+        if instance is None:
+            return self
+
+        try:
+            return getattr(instance, self.cache_name)
+        except AttributeError:
+            rel_obj = None
+
+            # Make sure to use ContentType.objects.get_for_id() to ensure that
+            # lookups are cached (see ticket #5570). This takes more code than
+            # the naive ``getattr(instance, self.ct_field)``, but has better
+            # performance when dealing with GFKs in loops and such.
+            f = self.field.model._meta.get_field(self.field.ct_field)
+            ct_id = getattr(instance, f.get_attname(), None)
+            if ct_id is not None:
+                ct = self.field.get_content_type(id=ct_id, using=instance._state.db)
+                try:
+                    rel_obj = ct.get_object_for_this_type(pk=getattr(instance, self.field.fk_field))
+                except ObjectDoesNotExist:
+                    pass
+            setattr(instance, self.cache_name, rel_obj)
+            return rel_obj
+
+    def __set__(self, instance, value):
+        ct = None
+        fk = None
+        if value is not None:
+            ct = self.field.get_content_type(obj=value)
+            fk = value._get_pk_val()
+
+        setattr(instance, self.field.ct_field, ct)
+        setattr(instance, self.field.fk_field, fk)
+        setattr(instance, self.cache_name, value)
+
+
+class GenericForeignKey(ForeignObject):
     """
     Provide a generic many-to-one relation through the ``content_type`` and
     ``object_id`` fields.
-
-    This class also doubles as an accessor to the related object (similar to
-    ForwardManyToOneDescriptor) by adding itself as a model attribute.
     """
 
-    # Field flags
-    auto_created = False
-    concrete = False
-    editable = False
-    hidden = False
-
-    is_relation = True
-    many_to_many = False
-    many_to_one = True
-    one_to_many = False
-    one_to_one = False
+    rel_class = None
     related_model = None
-    remote_field = None
 
-    def __init__(self, ct_field='content_type', fk_field='object_id', for_concrete_model=True):
+    def __init__(self, ct_field='content_type', fk_field='object_id',
+            for_concrete_model=True, **kwargs):
+        kwargs['editable'] = False
+
+        super(GenericForeignKey, self).__init__(None, None, from_fields=[ct_field, fk_field], to_fields=[], **kwargs)
+
+        self.is_relation = True
         self.ct_field = ct_field
         self.fk_field = fk_field
         self.for_concrete_model = for_concrete_model
-        self.editable = False
-        self.rel = None
-        self.column = None
 
     def contribute_to_class(self, cls, name, **kwargs):
-        self.name = name
-        self.model = cls
-        self.cache_attr = "_%s_cache" % name
-        cls._meta.add_field(self, virtual=True)
+        kwargs['virtual_only'] = True
 
-        # Only run pre-initialization field assignment on non-abstract models
+        super(GenericForeignKey, self).contribute_to_class(cls, name, **kwargs)
+
+        self.model = cls
+        setattr(cls, self.name, ForwardGenericManyToOneDescriptor(self))
+
         if not cls._meta.abstract:
             signals.pre_init.connect(self.instance_pre_init, sender=cls)
 
-        setattr(cls, name, self)
+    def contribute_to_related_class(self, cls, related):
+        pass
 
     def get_filter_kwargs_for_object(self, obj):
         """See corresponding method on Field"""
@@ -74,11 +163,6 @@ class GenericForeignKey(object):
             self.fk_field: obj.pk,
             self.ct_field: ContentType.objects.get_for_model(obj).pk,
         }
-
-    def __str__(self):
-        model = self.model
-        app = model._meta.app_label
-        return '%s.%s.%s' % (app, model._meta.object_name, self.name)
 
     def check(self, **kwargs):
         errors = []
@@ -189,102 +273,6 @@ class GenericForeignKey(object):
             # This should never happen. I love comments like this, don't you?
             raise Exception("Impossible arguments to GFK.get_content_type!")
 
-    def get_prefetch_queryset(self, instances, queryset=None):
-        if queryset is not None:
-            raise ValueError("Custom queryset can't be used for this lookup.")
-
-        # For efficiency, group the instances by content type and then do one
-        # query per model
-        fk_dict = defaultdict(set)
-        # We need one instance for each group in order to get the right db:
-        instance_dict = {}
-        ct_attname = self.model._meta.get_field(self.ct_field).get_attname()
-        for instance in instances:
-            # We avoid looking for values if either ct_id or fkey value is None
-            ct_id = getattr(instance, ct_attname)
-            if ct_id is not None:
-                fk_val = getattr(instance, self.fk_field)
-                if fk_val is not None:
-                    fk_dict[ct_id].add(fk_val)
-                    instance_dict[ct_id] = instance
-
-        ret_val = []
-        for ct_id, fkeys in fk_dict.items():
-            instance = instance_dict[ct_id]
-            ct = self.get_content_type(id=ct_id, using=instance._state.db)
-            ret_val.extend(ct.get_all_objects_for_this_type(pk__in=fkeys))
-
-        # For doing the join in Python, we have to match both the FK val and the
-        # content type, so we use a callable that returns a (fk, class) pair.
-        def gfk_key(obj):
-            ct_id = getattr(obj, ct_attname)
-            if ct_id is None:
-                return None
-            else:
-                model = self.get_content_type(id=ct_id,
-                                              using=obj._state.db).model_class()
-                return (model._meta.pk.get_prep_value(getattr(obj, self.fk_field)),
-                        model)
-
-        return (ret_val,
-                lambda obj: (obj._get_pk_val(), obj.__class__),
-                gfk_key,
-                True,
-                self.cache_attr)
-
-    def is_cached(self, instance):
-        return hasattr(instance, self.cache_attr)
-
-    def __get__(self, instance, cls=None):
-        if instance is None:
-            return self
-
-        try:
-            return getattr(instance, self.cache_attr)
-        except AttributeError:
-            rel_obj = None
-
-            # Make sure to use ContentType.objects.get_for_id() to ensure that
-            # lookups are cached (see ticket #5570). This takes more code than
-            # the naive ``getattr(instance, self.ct_field)``, but has better
-            # performance when dealing with GFKs in loops and such.
-            f = self.model._meta.get_field(self.ct_field)
-            ct_id = getattr(instance, f.get_attname(), None)
-            if ct_id is not None:
-                ct = self.get_content_type(id=ct_id, using=instance._state.db)
-                try:
-                    rel_obj = ct.get_object_for_this_type(pk=getattr(instance, self.fk_field))
-                except ObjectDoesNotExist:
-                    pass
-            setattr(instance, self.cache_attr, rel_obj)
-            return rel_obj
-
-    def __set__(self, instance, value):
-        ct = None
-        fk = None
-        if value is not None:
-            ct = self.get_content_type(obj=value)
-            fk = value._get_pk_val()
-
-        setattr(instance, self.ct_field, ct)
-        setattr(instance, self.fk_field, fk)
-        setattr(instance, self.cache_attr, value)
-
-
-class GenericRel(ForeignObjectRel):
-    """
-    Used by GenericRelation to store information about the relation.
-    """
-
-    def __init__(self, field, to, related_name=None, related_query_name=None, limit_choices_to=None):
-        super(GenericRel, self).__init__(
-            field, to,
-            related_name=related_query_name or '+',
-            related_query_name=related_query_name,
-            limit_choices_to=limit_choices_to,
-            on_delete=DO_NOTHING,
-        )
-
 
 class GenericRelation(ForeignObject):
     """
@@ -292,21 +280,17 @@ class GenericRelation(ForeignObject):
     """
 
     # Field flags
-    auto_created = False
-
-    many_to_many = False
     many_to_one = False
     one_to_many = True
-    one_to_one = False
-
-    rel_class = GenericRel
 
     def __init__(self, to, object_id_field='object_id', content_type_field='content_type',
             for_concrete_model=True, related_query_name=None, limit_choices_to=None, **kwargs):
         kwargs['rel'] = self.rel_class(
             self, to,
+            related_name=related_query_name or '+',
             related_query_name=related_query_name,
             limit_choices_to=limit_choices_to,
+            on_delete=DO_NOTHING,
         )
 
         kwargs['blank'] = True

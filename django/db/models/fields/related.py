@@ -283,11 +283,12 @@ class RelatedField(Field):
         return None
 
     def contribute_to_class(self, cls, name, virtual_only=False):
-
         super(RelatedField, self).contribute_to_class(cls, name, virtual_only=virtual_only)
 
-        self.opts = cls._meta
+        if not self.remote_field:
+            return
 
+        self.opts = cls._meta
         if not cls._meta.abstract:
             if self.remote_field.related_name:
                 related_name = force_text(self.remote_field.related_name) % {
@@ -438,7 +439,7 @@ class ForeignObject(RelatedField):
             related_query_name=None, limit_choices_to=None, parent_link=False,
             swappable=True, **kwargs):
 
-        if rel is None:
+        if self.rel_class and rel is None:
             rel = self.rel_class(
                 self, to,
                 related_name=related_name,
