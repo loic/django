@@ -133,7 +133,8 @@ class LogEntry(models.Model):
 
     def get_edited_object(self):
         "Returns the edited object represented by this log entry"
-        return self.content_type.get_object_for_this_type(pk=self.object_id)
+        model_class = self.content_type.model_class()
+        return model_class._base_manager.get(pk=self.object_id)
 
     def get_admin_url(self):
         """

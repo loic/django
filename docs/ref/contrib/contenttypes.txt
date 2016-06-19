@@ -104,15 +104,7 @@ Methods on ``ContentType`` instances
 Each :class:`~django.contrib.contenttypes.models.ContentType` instance has
 methods that allow you to get from a
 :class:`~django.contrib.contenttypes.models.ContentType` instance to the
-model it represents, or to retrieve objects from that model:
-
-.. method:: ContentType.get_object_for_this_type(**kwargs)
-
-    Takes a set of valid :ref:`lookup arguments <field-lookups-intro>` for the
-    model the :class:`~django.contrib.contenttypes.models.ContentType`
-    represents, and does
-    :meth:`a get() lookup <django.db.models.query.QuerySet.get>`
-    on that model, returning the corresponding object.
+model it represents:
 
 .. method:: ContentType.model_class()
 
@@ -133,24 +125,23 @@ to the ``User`` model class::
 
     >>> user_type.model_class()
     <class 'django.contrib.auth.models.User'>
-    >>> user_type.get_object_for_this_type(username='Guido')
+    >>> user_type.model_class().objects.get(username='Guido')
     <User: Guido>
 
-Together,
-:meth:`~django.contrib.contenttypes.models.ContentType.get_object_for_this_type`
-and :meth:`~django.contrib.contenttypes.models.ContentType.model_class` enable
+The :meth:`~django.contrib.contenttypes.models.ContentType.model_class` enable
 two extremely important use cases:
 
-1. Using these methods, you can write high-level generic code that
+1. Using this method, you can write high-level generic code that
    performs queries on any installed model -- instead of importing and
    using a single specific model class, you can pass an ``app_label`` and
    ``model`` into a
    :class:`~django.contrib.contenttypes.models.ContentType` lookup at
-   runtime, and then work with the model class or retrieve objects from it.
+   runtime, and then work with the model class or retrieve objects from it
+   using its managers (e.g. `_default_manager`).
 
 2. You can relate another model to
    :class:`~django.contrib.contenttypes.models.ContentType` as a way of
-   tying instances of it to particular model classes, and use these methods
+   tying instances of it to particular model classes, and use this method
    to get access to those model classes.
 
 Several of Django's bundled applications make use of the latter technique.

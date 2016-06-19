@@ -15,10 +15,11 @@ def shortcut(request, content_type_id, object_id):
     # Look up the object, making sure it's got a get_absolute_url() function.
     try:
         content_type = ContentType.objects.get(pk=content_type_id)
-        if not content_type.model_class():
+        model_class = content_type.model_class()
+        if not model_class:
             raise http.Http404(_("Content type %(ct_id)s object has no associated model") %
                                {'ct_id': content_type_id})
-        obj = content_type.get_object_for_this_type(pk=object_id)
+        obj = model_class._default_manager.get(pk=object_id)
     except (ObjectDoesNotExist, ValueError):
         raise http.Http404(_("Content type %(ct_id)s object %(obj_id)s doesn't exist") %
                            {'ct_id': content_type_id, 'obj_id': object_id})

@@ -4,7 +4,7 @@ from collections import defaultdict
 
 from django.contrib.contenttypes.models import ContentType
 from django.core import checks
-from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
+from django.core.exceptions import FieldDoesNotExist
 from django.db import DEFAULT_DB_ALIAS, models, router, transaction
 from django.db.models import DO_NOTHING
 from django.db.models.base import ModelBase, make_foreign_order_accessors
@@ -189,8 +189,9 @@ class GenericForeignKey(object):
         ret_val = []
         for ct_id, fkeys in fk_dict.items():
             instance = instance_dict[ct_id]
-            ct = self.get_content_type(id=ct_id, using=instance._state.db)
-            ret_val.extend(ct.get_all_objects_for_this_type(pk__in=fkeys))
+            db = instance._state.db
+            related_model = self.get_content_type(id=ct_id, using=db).model_class()
+            ret_val.extend(related_model._default_manager.using(db).filter(pk__in=fkeys))
 
         # For doing the join in Python, we have to match both the FK val and the
         # content type, so we use a callable that returns a (fk, class) pair.
@@ -238,10 +239,10 @@ class GenericForeignKey(object):
             return rel_obj
 
         if ct_id is not None:
-            ct = self.get_content_type(id=ct_id, using=instance._state.db)
+            model_class = self.get_content_type(id=ct_id, using=instance._state.db).model_class()
             try:
-                rel_obj = ct.get_object_for_this_type(pk=pk_val)
-            except ObjectDoesNotExist:
+                rel_obj = model_class._base_manager.get(pk=pk_val)
+            except model_class.DoesNotExist:
                 pass
         setattr(instance, self.cache_attr, rel_obj)
         return rel_obj

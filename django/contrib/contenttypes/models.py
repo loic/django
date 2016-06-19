@@ -165,6 +165,11 @@ class ContentType(models.Model):
 
     def get_object_for_this_type(self, **kwargs):
         """
+        DEPRECATED -- This function use _base_manager but in most cases
+        another manager is more appropriate so it's best to retrieve
+        the model with model_class() and call the manager explicitly
+        rather than rely on this convenience method.
+
         Returns an object of this type for the keyword arguments given.
         Basically, this is a proxy around this object_type's get_object() model
         method. The ObjectNotExist exception, if thrown, will not be caught,
@@ -174,6 +179,11 @@ class ContentType(models.Model):
 
     def get_all_objects_for_this_type(self, **kwargs):
         """
+        DEPRECATED -- This function use _base_manager but in most cases
+        another manager is more appropriate so it's best to retrieve
+        the model with model_class() and call the manager explicitly
+        rather than rely on this convenience method.
+
         Returns all objects of this type for the keyword arguments given.
         """
         return self.model_class()._base_manager.using(self._state.db).filter(**kwargs)
