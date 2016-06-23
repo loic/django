@@ -108,20 +108,7 @@ class ForwardManyToOneDescriptor(object):
 
     def get_queryset(self, **hints):
         related_model = self.field.remote_field.model
-
-        if (not related_model._meta.base_manager_name and
-                getattr(related_model._default_manager, 'use_for_related_fields', False)):
-            if not getattr(related_model._default_manager, 'silence_use_for_related_fields_deprecation', False):
-                warnings.warn(
-                    "use_for_related_fields is deprecated, instead "
-                    "set Meta.base_manager_name on '{}'.".format(related_model._meta.label),
-                    RemovedInDjango20Warning, 2
-                )
-            manager = related_model._default_manager
-        else:
-            manager = related_model._base_manager
-
-        return manager.db_manager(hints=hints).all()
+        return related_model._meta.single_related_manager.db_manager(hints=hints).all()
 
     def get_prefetch_queryset(self, instances, queryset=None):
         if queryset is None:
@@ -325,20 +312,7 @@ class ReverseOneToOneDescriptor(object):
 
     def get_queryset(self, **hints):
         related_model = self.related.related_model
-
-        if (not related_model._meta.base_manager_name and
-                getattr(related_model._default_manager, 'use_for_related_fields', False)):
-            if not getattr(related_model._default_manager, 'silence_use_for_related_fields_deprecation', False):
-                warnings.warn(
-                    "use_for_related_fields is deprecated, instead "
-                    "set Meta.base_manager_name on '{}'.".format(related_model._meta.label),
-                    RemovedInDjango20Warning, 2
-                )
-            manager = related_model._default_manager
-        else:
-            manager = related_model._base_manager
-
-        return manager.db_manager(hints=hints).all()
+        return related_model._meta.single_related_manager.db_manager(hints=hints).all()
 
     def get_prefetch_queryset(self, instances, queryset=None):
         if queryset is None:
@@ -490,9 +464,8 @@ class ReverseManyToOneDescriptor(object):
     @cached_property
     def related_manager_cls(self):
         related_model = self.rel.related_model
-
         return create_reverse_many_to_one_manager(
-            related_model._default_manager.__class__,
+            related_model._meta.many_related_manager.__class__,
             self.rel,
         )
 
@@ -752,9 +725,8 @@ class ManyToManyDescriptor(ReverseManyToOneDescriptor):
     @cached_property
     def related_manager_cls(self):
         related_model = self.rel.related_model if self.reverse else self.rel.model
-
         return create_forward_many_to_many_manager(
-            related_model._default_manager.__class__,
+            related_model._meta.many_related_manager.__class__,
             self.rel,
             reverse=self.reverse,
         )

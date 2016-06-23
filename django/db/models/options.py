@@ -93,6 +93,8 @@ class Options(object):
         self.local_managers = []
         self.base_manager_name = None
         self.default_manager_name = None
+        self.single_related_manager_name = None
+        self.many_related_manager_name = None
         self.model_name = None
         self.verbose_name = None
         self.verbose_name_plural = None
@@ -458,6 +460,46 @@ class Options(object):
 
         if self.managers:
             return self.managers[0]
+
+    @cached_property
+    def single_related_manager(self):
+        if self.single_related_manager_name:
+            try:
+                return self.managers_map[self.single_related_manager_name]
+            except KeyError:
+                raise ValueError(
+                    "%s has no manager named %r" % (
+                        self.object_name,
+                        self.single_related_manager_name,
+                    )
+                )
+
+        if (not self.base_manager_name and
+                getattr(self.default_manager, 'use_for_related_fields', False)):
+            if not getattr(self.default_manager, 'silence_use_for_related_fields_deprecation', False):
+                warnings.warn(
+                    "use_for_related_fields is deprecated, instead "
+                    "set Meta.base_manager_name on '{}'.".format(self.label),
+                    RemovedInDjango20Warning, 2
+                )
+            return self.default_manager
+
+        return self.base_manager
+
+    @cached_property
+    def many_related_manager(self):
+        if self.many_related_manager_name:
+            try:
+                return self.managers_map[self.many_related_manager_name]
+            except KeyError:
+                raise ValueError(
+                    "%s has no manager named %r" % (
+                        self.object_name,
+                        self.many_related_manager_name,
+                    )
+                )
+
+        return self.default_manager
 
     @cached_property
     def fields(self):
